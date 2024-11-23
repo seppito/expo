@@ -491,27 +491,7 @@ public class GLContext {
           } catch (Exception e) {
               Log.e("GLContext", "Exception during HardwareBuffer creation: " + e.getMessage(), e);
           }
-
-          // Create a Bitmap backed by the HardwareBuffer
-          Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-
-          // Create a Canvas and draw something on the Bitmap
-          Canvas canvas = new Canvas(bitmap);
-          Paint paint = new Paint();
-          paint.setColor(Color.RED);
-          canvas.drawRect(0, 0, width, height, paint);
-
-          // Handle hardware buffer lock/unlock safely (mock implementation)
-          try {
-              // hardwareBuffer.lock(); // Requires native implementation
-              Log.i("GLContext", "HardwareBuffer locked successfully.");
-              // Placeholder: simulate copying bitmap data (use native code for real implementation)
-              // hardwareBuffer.unlock();
-              Log.i("GLContext", "HardwareBuffer unlocked successfully.");
-          } catch (Exception e) {
-              Log.e("GLContext", "Error while manipulating HardwareBuffer: " + e.getMessage(), e);
-          }
-
+          
           return hardwareBuffer;
       }
 //@SuppressWarnings("JavaJniMissingFunction")
