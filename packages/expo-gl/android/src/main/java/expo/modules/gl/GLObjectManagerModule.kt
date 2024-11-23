@@ -2,7 +2,6 @@
 package expo.modules.gl
 
 import android.os.Bundle
-import android.util.Log
 import android.util.SparseArray
 import android.view.View
 import expo.modules.interfaces.camera.CameraViewInterface
@@ -12,6 +11,10 @@ import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import android.graphics.*
+import android.hardware.HardwareBuffer
+import android.util.Log
+import java.nio.ByteBuffer
 
 private class InvalidCameraViewException :
   CodedException("Provided view tag doesn't point to a valid instance of the camera view")
@@ -87,15 +90,9 @@ class GLObjectManagerModule : Module() {
       val context = mGLContextMap[exglCtxId]
         ?: throw InvalidGLContextException()
 
-      Log.i("GLObjectManagerModule", "Uploading hardware buffer for context ID: $exglCtxId")
-      try {
-        val result = context.createTestHardwareBuffer()
-        Log.i("GLObjectManagerModule", "Hardware buffer uploaded successfully: $result")
-        promise.resolve("Hardware buffer uploaded successfully")
-      } catch (e: Exception) {
-        Log.e("GLObjectManagerModule", "Error uploading hardware buffer for context ID: $exglCtxId", e)
-        promise.reject("ERR_UPLOAD_BUFFER", "Failed to upload hardware buffer", e)
-      }
+      context.push_texture_from_native_buffer()
+
+      promise.resolve(1)
     }
   }
 
