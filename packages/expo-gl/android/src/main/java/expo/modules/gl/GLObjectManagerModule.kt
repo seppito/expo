@@ -2,9 +2,9 @@
 package expo.modules.gl
 
 import android.os.Bundle
+import android.util.Log
 import android.util.SparseArray
 import android.view.View
-import android.util.Log
 import expo.modules.interfaces.camera.CameraViewInterface
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
@@ -14,14 +14,15 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 private class InvalidCameraViewException :
-  CodedException("Provided view tag don't point to valid instance of the camera view")
+  CodedException("Provided view tag doesn't point to a valid instance of the camera view")
 
 private class InvalidGLContextException :
-  CodedException("GLContext not found for given context id")
+  CodedException("GLContext not found for the given context ID")
 
 class GLObjectManagerModule : Module() {
   private val mGLObjects = SparseArray<GLObject>()
   private val mGLContextMap = SparseArray<GLContext>()
+
   override fun definition() = ModuleDefinition {
     Name("ExponentGLObjectManager")
 
@@ -67,6 +68,8 @@ class GLObjectManagerModule : Module() {
         val results = Bundle()
         results.putInt("exglCtxId", glContext.contextId)
         promise.resolve(results)
+        Log.i("GLObjectManagerModule", "GL context created with ID: ${glContext.contextId}")
+        saveContext(glContext)
       }
     }
 
@@ -74,23 +77,26 @@ class GLObjectManagerModule : Module() {
       val glContext = getContextWithId(exglCtxId)
         ?: return@AsyncFunction false
 
+      Log.i("GLObjectManagerModule", "Destroying GL context with ID: $exglCtxId")
       glContext.destroy()
+      deleteContextWithId(exglCtxId)
       true
     }
 
-    // Make this func async
     AsyncFunction("uploadAHardwareBufferAsync") { exglCtxId: Int, promise: Promise ->
       val context = mGLContextMap[exglCtxId]
-          ?: throw InvalidGLContextException()
-  
+        ?: throw InvalidGLContextException()
+
+      Log.i("GLObjectManagerModule", "Uploading hardware buffer for context ID: $exglCtxId")
       try {
-          context.createTestHardwareBuffer()
-          promise.resolve("Hardware buffer uploaded successfully")
+        val result = context.createTestHardwareBuffer()
+        Log.i("GLObjectManagerModule", "Hardware buffer uploaded successfully: $result")
+        promise.resolve("Hardware buffer uploaded successfully")
       } catch (e: Exception) {
-          promise.reject("ERR_UPLOAD_BUFFER", "Failed to upload hardware buffer", e)
+        Log.e("GLObjectManagerModule", "Error uploading hardware buffer for context ID: $exglCtxId", e)
+        promise.reject("ERR_UPLOAD_BUFFER", "Failed to upload hardware buffer", e)
       }
-  }
-  
+    }
   }
 
   private fun getContextWithId(exglCtxId: Int): GLContext? {
@@ -98,10 +104,12 @@ class GLObjectManagerModule : Module() {
   }
 
   fun saveContext(glContext: GLContext) {
+    Log.i("GLObjectManagerModule", "Saving GL context with ID: ${glContext.contextId}")
     mGLContextMap.put(glContext.contextId, glContext)
   }
 
   fun deleteContextWithId(exglCtxId: Int) {
+    Log.i("GLObjectManagerModule", "Deleting GL context with ID: $exglCtxId")
     mGLContextMap.delete(exglCtxId)
   }
 }

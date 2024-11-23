@@ -23,6 +23,7 @@ export declare class GLView extends React.Component<GLViewProps> {
      * @return A promise that resolves to WebGL context object. See [WebGL API](#webgl-api) for more details.
      */
     static createContextAsync(): Promise<ExpoWebGLRenderingContext>;
+    static createTestHardwareBuffer(exglCtxId: number): Promise<ExpoWebGLRenderingContext>;
     /**
      * Destroys given context.
      * @param exgl WebGL context to destroy.

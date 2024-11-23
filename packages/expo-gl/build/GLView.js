@@ -4,6 +4,7 @@ import { Platform, View, findNodeHandle } from 'react-native';
 import { configureLogging } from './GLUtils';
 import { createWorkletContextManager } from './GLWorkletContextManager';
 const ExponentGLObjectManager = requireNativeModule('ExponentGLObjectManager');
+console.log("GL View Loaded. ");
 const { ExponentGLViewManager } = NativeModulesProxy;
 const NativeView = requireNativeViewManager('ExponentGLView');
 const workletContextManager = createWorkletContextManager();
@@ -32,6 +33,10 @@ export class GLView extends React.Component {
      */
     static async createContextAsync() {
         const { exglCtxId } = await ExponentGLObjectManager.createContextAsync();
+        return getGl(exglCtxId);
+    }
+    static async createTestHardwareBuffer(exglCtxId) {
+        await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId);
         return getGl(exglCtxId);
     }
     /**

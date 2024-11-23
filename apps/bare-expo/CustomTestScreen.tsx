@@ -13,6 +13,12 @@ const CustomTestScreen = () => {
         } catch (error) {
             console.error("Error in onContextCreate:", error);
         }
+
+        try {
+         await GLView.createTestHardwareBuffer(gl.contextId);
+      } catch (error) {
+          console.error("Error in uploadBufferw:", error);
+      }
     }
 
     return (

@@ -27,17 +27,7 @@ export type WebGLObject = {
 declare let global: any;
 
 const ExponentGLObjectManager = requireNativeModule('ExponentGLObjectManager');
-//console.log("GL View Loaded. ");
-
-/*
-const uploadTestBuffer = () => {
-  console.log("Entro peroo... ");
-
-  ExponentGLObjectManager.uploadAHardwareBuffer();
-}
-
-//uploadTestBuffer();
-*/
+console.log("GL View Loaded. ");
 
 const { ExponentGLViewManager } = NativeModulesProxy;
 
@@ -75,6 +65,11 @@ export class GLView extends React.Component<GLViewProps> {
     return getGl(exglCtxId);
   }
 
+  static async createTestHardwareBuffer(exglCtxId: number): Promise<ExpoWebGLRenderingContext>{
+    await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId);
+    return getGl(exglCtxId)
+
+  }
   /**
    * Destroys given context.
    * @param exgl WebGL context to destroy.
@@ -149,6 +144,7 @@ export class GLView extends React.Component<GLViewProps> {
     if (this.props.onContextCreate) {
       this.props.onContextCreate(gl);
     }
+
   };
 
   componentWillUnmount(): void {
