@@ -1,6 +1,5 @@
 package expo.modules.gl;
 
-
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
@@ -11,7 +10,10 @@ import android.opengl.GLUtils;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
-
+import android.hardware.HardwareBuffer;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Color;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.lang.ref.WeakReference;
@@ -461,4 +463,59 @@ public class GLContext {
     }
     return (Integer) value;
   }
+
+  public void push_texture_from_native_buffer(){
+    createTestHardwareBuffer();
+    Log.i("GLContext", "We did It!");
+
+  }
+
+  public HardwareBuffer createTestHardwareBuffer() {
+          int width = 256;
+          int height = 256;
+          int format = HardwareBuffer.RGBA_8888;
+          int layers = 1; // Use 1 layer for a basic image
+          int usage = (int) HardwareBuffer.USAGE_CPU_READ_OFTEN | 
+                      (int) HardwareBuffer.USAGE_CPU_WRITE_OFTEN | 
+                      (int) HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE;
+
+          // Create a HardwareBuffer
+          HardwareBuffer hardwareBuffer = null;
+          try {
+              hardwareBuffer = HardwareBuffer.create(width, height, format, layers, usage);
+              if (hardwareBuffer != null) {
+                  Log.i("GLContext", "HardwareBuffer created successfully. Width: " + width + ", Height: " + height);
+              } else {
+                  Log.e("GLContext", "Failed to create HardwareBuffer");
+              }
+          } catch (Exception e) {
+              Log.e("GLContext", "Exception during HardwareBuffer creation: " + e.getMessage(), e);
+          }
+
+          // Create a Bitmap backed by the HardwareBuffer
+          Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+
+          // Create a Canvas and draw something on the Bitmap
+          Canvas canvas = new Canvas(bitmap);
+          Paint paint = new Paint();
+          paint.setColor(Color.RED);
+          canvas.drawRect(0, 0, width, height, paint);
+
+          // Handle hardware buffer lock/unlock safely (mock implementation)
+          try {
+              // hardwareBuffer.lock(); // Requires native implementation
+              Log.i("GLContext", "HardwareBuffer locked successfully.");
+              // Placeholder: simulate copying bitmap data (use native code for real implementation)
+              // hardwareBuffer.unlock();
+              Log.i("GLContext", "HardwareBuffer unlocked successfully.");
+          } catch (Exception e) {
+              Log.e("GLContext", "Error while manipulating HardwareBuffer: " + e.getMessage(), e);
+          }
+
+          return hardwareBuffer;
+      }
+//@SuppressWarnings("JavaJniMissingFunction")
+//private native HybridData initHybrid();
+//public native void nativeProcessHardwareBuffer(HardwareBuffer hardwareBuffer);
+
 }

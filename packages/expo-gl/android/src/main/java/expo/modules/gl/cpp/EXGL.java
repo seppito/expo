@@ -1,7 +1,7 @@
 package expo.modules.gl.cpp;
 
 import com.facebook.soloader.SoLoader;
-
+//import 	android.hardware.HardwareBuffer
 // Java bindings for EXGLNativeApi.h interface
 public class EXGL {
   static {
@@ -20,4 +20,6 @@ public class EXGL {
   public static native int EXGLContextGetObject(int exglCtxId, int exglObjId);
   public static native boolean EXGLContextNeedsRedraw(int exglCtxId);
   public static native void EXGLContextDrawEnded(int exglCtxId);
+  // Native Method to upload a texture to a pointer.
+  //public static native void EXGLContextUploadTexture(int exglCtxId);
 }

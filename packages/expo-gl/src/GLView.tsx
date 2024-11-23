@@ -27,6 +27,18 @@ export type WebGLObject = {
 declare let global: any;
 
 const ExponentGLObjectManager = requireNativeModule('ExponentGLObjectManager');
+//console.log("GL View Loaded. ");
+
+/*
+const uploadTestBuffer = () => {
+  console.log("Entro peroo... ");
+
+  ExponentGLObjectManager.uploadAHardwareBuffer();
+}
+
+//uploadTestBuffer();
+*/
+
 const { ExponentGLViewManager } = NativeModulesProxy;
 
 const NativeView = requireNativeViewManager('ExponentGLView');

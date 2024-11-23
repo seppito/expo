@@ -69,6 +69,7 @@ class GLView(context: Context, appContext: AppContext) : TextureView(context), S
     if (onSurfaceTextureWasCalledWithZeroSize && (width != 0 || height != 0)) {
       initializeSurfaceInGLContext(surfaceTexture)
       onSurfaceTextureWasCalledWithZeroSize = false
+      //glContext.push_texture_from_native_buffer()
     }
   }
 

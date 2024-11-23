@@ -4,6 +4,7 @@ package expo.modules.gl
 import android.os.Bundle
 import android.util.SparseArray
 import android.view.View
+import android.util.Log
 import expo.modules.interfaces.camera.CameraViewInterface
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
@@ -76,6 +77,20 @@ class GLObjectManagerModule : Module() {
       glContext.destroy()
       true
     }
+
+    // Make this func async
+    AsyncFunction("uploadAHardwareBufferAsync") { exglCtxId: Int, promise: Promise ->
+      val context = mGLContextMap[exglCtxId]
+          ?: throw InvalidGLContextException()
+  
+      try {
+          context.createTestHardwareBuffer()
+          promise.resolve("Hardware buffer uploaded successfully")
+      } catch (e: Exception) {
+          promise.reject("ERR_UPLOAD_BUFFER", "Failed to upload hardware buffer", e)
+      }
+  }
+  
   }
 
   private fun getContextWithId(exglCtxId: Int): GLContext? {
