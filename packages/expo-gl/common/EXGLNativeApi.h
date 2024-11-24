@@ -3,6 +3,7 @@
 
 #ifdef __ANDROID__
 #include <GLES3/gl3.h>
+#include <android/hardware_buffer.h> // Include HardwareBuffer header
 #endif
 #ifdef __APPLE__
 #include <OpenGLES/ES3/gl.h>
@@ -47,6 +48,8 @@ void EXGLContextDrawEnded(EXGLContextId exglCtxId);
 // [Any thread] Release the resources for an EXGL context. The same id is never
 // reused.
 void EXGLContextDestroy(EXGLContextId exglCtxId);
+
+void EXGLContextUploadTexture(EXGLContextId exglCtxId, AHardwareBuffer *hardwareBuffer);
 
 // [GL thread] Perform one frame's worth of queued up GL work
 void EXGLContextFlush(EXGLContextId exglCtxId);

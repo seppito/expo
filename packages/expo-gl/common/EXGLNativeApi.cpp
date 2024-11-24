@@ -17,7 +17,9 @@ void EXGLContextPrepare(
     exglCtx->prepareContext(*reinterpret_cast<jsi::Runtime *>(jsiPtr), flushMethod);
   }
 }
-
+void EXGLContextUploadTexture(EXGLContextId exglCtxId, AHardwareBuffer *hardwareBuffer){
+  
+}
 void EXGLContextPrepareWorklet(EXGLContextId exglCtxId) {
   auto [exglCtx, lock] = ContextGet(exglCtxId);
   if (exglCtx) {

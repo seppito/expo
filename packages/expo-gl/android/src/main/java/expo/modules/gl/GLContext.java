@@ -465,9 +465,10 @@ public class GLContext {
   }
 
   public void push_texture_from_native_buffer(){
-    createTestHardwareBuffer();
-    Log.i("GLContext", "We did It!");
-
+    HardwareBuffer testHB = createTestHardwareBuffer();
+    //long bufferPointer = HardwareBuffer.getNativeHardwareBuffer(testHB);
+    Log.i("GLContext", "We did It! Width = "+ testHB.getWidth());
+    EXGLContextUploadTexture(mEXGLCtxId,testHB);
   }
 
   public HardwareBuffer createTestHardwareBuffer() {
@@ -491,7 +492,7 @@ public class GLContext {
           } catch (Exception e) {
               Log.e("GLContext", "Exception during HardwareBuffer creation: " + e.getMessage(), e);
           }
-          
+
           return hardwareBuffer;
       }
 //@SuppressWarnings("JavaJniMissingFunction")

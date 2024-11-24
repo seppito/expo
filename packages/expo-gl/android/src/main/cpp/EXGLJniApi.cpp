@@ -3,10 +3,11 @@
 #include <jni.h>
 #include <thread>
 #include <android/log.h>
-
+#include <android/hardware_buffer_jni.h>
 #include <jsi/jsi.h>
 #include "EXGLNativeApi.h"
 #include "EXPlatformUtils.h"
+#include <stdio.h>
 
 extern "C" {
 
@@ -89,4 +90,53 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextDrawEnded
   EXGLContextDrawEnded(exglCtxId);
 }
 
+#if __ANDROID_API__ >= 26
+JNIEXPORT void JNICALL
+Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
+    JNIEnv *env,
+    jclass clazz,
+    jobject hardwareBuffer, // Java object
+    jint exglCtxId) {
+
+    if (hardwareBuffer == nullptr) {
+        __android_log_print(ANDROID_LOG_ERROR, "GLContext", "HardwareBuffer is null");
+        return;
+    }
+
+    // Convert jobject to AHardwareBuffer*
+    AHardwareBuffer *nativeBuffer = AHardwareBuffer_fromHardwareBuffer(env, hardwareBuffer);
+    if (nativeBuffer == nullptr) {
+        __android_log_print(ANDROID_LOG_ERROR, "GLContext", "Failed to convert HardwareBuffer to native AHardwareBuffer");
+        return;
+    }
+
+    // Pass the native buffer to the EXGLContextUploadTexture function
+    EXGLContextUploadTexture(exglCtxId, nativeBuffer);
+
+    // Release the native buffer after use
+    AHardwareBuffer_release(nativeBuffer);
+    __android_log_print(ANDROID_LOG_INFO, "GLContext", "Uploaded texture and released HardwareBuffer.");
 }
+#else
+JNIEXPORT void JNICALL
+Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
+    JNIEnv *env,
+    jclass clazz,
+    jobject hardwareBuffer, 
+    jint exglCtxId) {
+    __android_log_print(ANDROID_LOG_ERROR, "GLContext", "AHardwareBuffer not supported on this API level.");
+}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+}
+

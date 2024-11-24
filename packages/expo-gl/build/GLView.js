@@ -4,7 +4,6 @@ import { Platform, View, findNodeHandle } from 'react-native';
 import { configureLogging } from './GLUtils';
 import { createWorkletContextManager } from './GLWorkletContextManager';
 const ExponentGLObjectManager = requireNativeModule('ExponentGLObjectManager');
-console.log("GL View Loaded. ");
 const { ExponentGLViewManager } = NativeModulesProxy;
 const NativeView = requireNativeViewManager('ExponentGLView');
 const workletContextManager = createWorkletContextManager();
