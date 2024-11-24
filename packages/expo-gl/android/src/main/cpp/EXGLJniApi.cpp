@@ -95,35 +95,45 @@ JNIEXPORT void JNICALL
 Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
     JNIEnv *env,
     jclass clazz,
-    jobject hardwareBuffer, // Java object
-    jint exglCtxId) {
+    jint exglCtxId,
+    jobject hardwareBuffer) {
 
     if (hardwareBuffer == nullptr) {
-        __android_log_print(ANDROID_LOG_ERROR, "GLContext", "HardwareBuffer is null");
+        __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "HardwareBuffer is null");
         return;
     }
 
     // Convert jobject to AHardwareBuffer*
     AHardwareBuffer *nativeBuffer = AHardwareBuffer_fromHardwareBuffer(env, hardwareBuffer);
     if (nativeBuffer == nullptr) {
-        __android_log_print(ANDROID_LOG_ERROR, "GLContext", "Failed to convert HardwareBuffer to native AHardwareBuffer");
+        __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Failed to convert HardwareBuffer to native AHardwareBuffer");
         return;
     }
+
+    // Describe the HardwareBuffer to get its dimensions
+    AHardwareBuffer_Desc desc;
+    AHardwareBuffer_describe(nativeBuffer, &desc);
+
+    // Log the dimensions and other details of the HardwareBuffer
+    __android_log_print(ANDROID_LOG_INFO, "EXGLJni",
+                        "HardwareBuffer details: width=%u, height=%u, layers=%u, format=%u, usage=0x%llx",
+                        desc.width, desc.height, desc.layers, desc.format, (unsigned long long)desc.usage);
 
     // Pass the native buffer to the EXGLContextUploadTexture function
     EXGLContextUploadTexture(exglCtxId, nativeBuffer);
 
     // Release the native buffer after use
     AHardwareBuffer_release(nativeBuffer);
-    __android_log_print(ANDROID_LOG_INFO, "GLContext", "Uploaded texture and released HardwareBuffer.");
+    __android_log_print(ANDROID_LOG_INFO, "EXGLJni", "Uploaded texture and released HardwareBuffer.");
 }
 #else
 JNIEXPORT void JNICALL
 Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
     JNIEnv *env,
     jclass clazz,
-    jobject hardwareBuffer, 
-    jint exglCtxId) {
+    jint exglCtxId,
+    jobject hardwareBuffer
+    ) {
     __android_log_print(ANDROID_LOG_ERROR, "GLContext", "AHardwareBuffer not supported on this API level.");
 }
 #endif

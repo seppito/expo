@@ -4,6 +4,10 @@
 
 using namespace expo::gl_cpp;
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 EXGLContextId EXGLContextCreate() {
   return ContextCreate();
 }
@@ -18,7 +22,9 @@ void EXGLContextPrepare(
   }
 }
 void EXGLContextUploadTexture(EXGLContextId exglCtxId, AHardwareBuffer *hardwareBuffer){
-  
+  // At this level I should create the texture in openGL and upload it to return the right textureID on the right OpenGL Context.
+      __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Context Upload Texture was called.");
+
 }
 void EXGLContextPrepareWorklet(EXGLContextId exglCtxId) {
   auto [exglCtx, lock] = ContextGet(exglCtxId);
