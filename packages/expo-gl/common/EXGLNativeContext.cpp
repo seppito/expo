@@ -1,5 +1,7 @@
 #include "EXGLNativeContext.h"
 #include "EXPlatformUtils.h"
+#include <GLES/gl.h> // OpenGL ES 1.0 headers
+#include <cstring> // For memcpy
 
 namespace expo {
 namespace gl_cpp {
@@ -17,6 +19,34 @@ void EXGLContext::prepareContext(jsi::Runtime &runtime, std::function<void(void)
   } catch (const std::runtime_error &err) {
     EXGLSysLog("Failed to setup EXGLContext [%s]", err.what());
   }
+}
+
+int EXGLContext:: uploadTextureToOpenGL(jsi::Runtime &runtime,AHardwareBuffer *hardwareBuffer){
+  EXGLSysLog("Reached UploadTextureToOpenGL");
+
+  //This option is no longer valid because there is no version 1.2 available only the EGL 1.0
+  //EGLClientBuffer clientBuffer = eglGetNativeClientBufferANDROID(hardwareBuffer);
+  // We need to convert this hardware buffer to bitmap or back to RGBA in order to create a textureID.
+  /*
+  glesContext result;
+  // Clear everything to initial values
+  addFutureToNextBatch([&] {
+    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    // This should not be called on headless contexts as they don't have default framebuffer.
+    // On headless context, status is undefined.
+    if (status != GL_FRAMEBUFFER_UNDEFINED) {
+      glClearColor(1, 1, 1, 1);
+      glClearDepthf(1);
+      glClearStencil(0);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    } 
+  });
+  
+  */
+  
+  //return result;
+  return 1;
 }
 
 void EXGLContext::maybeResolveWorkletContext(jsi::Runtime &runtime) {

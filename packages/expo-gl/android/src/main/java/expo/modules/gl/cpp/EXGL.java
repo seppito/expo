@@ -21,5 +21,5 @@ public class EXGL {
   public static native boolean EXGLContextNeedsRedraw(int exglCtxId);
   public static native void EXGLContextDrawEnded(int exglCtxId);
   // Native Method to upload a texture to a pointer.
-  public static native void EXGLContextUploadTexture(int exglCtxId,HardwareBuffer hardwareBuffer);
+  public static native void EXGLContextUploadTexture(long jsCtxPtr,int exglCtxId,HardwareBuffer hardwareBuffer);
 }

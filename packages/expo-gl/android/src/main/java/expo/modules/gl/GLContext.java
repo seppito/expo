@@ -50,6 +50,7 @@ public class GLContext {
   private EGL10 mEGL;
 
   private BlockingQueue<Runnable> mEventQueue = new LinkedBlockingQueue<>();
+  private JavaScriptContextProvider mJavaScriptContextProvider; // Declare as a property
 
   public GLContext(GLObjectManagerModule manager) {
     super();
@@ -83,15 +84,21 @@ public class GLContext {
     mGLThread.start();
     mEXGLCtxId = EXGLContextCreate();
 
-    // On JS thread, get JavaScriptCore context, create EXGL context, call JS callback
+   
+    // Initialize JavaScriptContextProvider once
+    if (mJavaScriptContextProvider == null) {
+      ModuleRegistry moduleRegistry = mManager.getAppContext().getLegacyModuleRegistry();
+      mJavaScriptContextProvider = moduleRegistry.getModule(JavaScriptContextProvider.class);
+    }
+
     final GLContext glContext = this;
     ModuleRegistry moduleRegistry = mManager.getAppContext().getLegacyModuleRegistry();
     final UIManager uiManager = moduleRegistry.getModule(UIManager.class);
-    final JavaScriptContextProvider jsContextProvider = moduleRegistry.getModule(JavaScriptContextProvider.class);
+
     uiManager.runOnClientCodeQueueThread(new Runnable() {
       @Override
       public void run() {
-        long jsContextRef = jsContextProvider.getJavaScriptContextRef();
+        long jsContextRef = mJavaScriptContextProvider.getJavaScriptContextRef();
         synchronized (uiManager) {
           if (jsContextRef != 0) {
             EXGLContextPrepare(jsContextRef, mEXGLCtxId, glContext);
@@ -468,7 +475,8 @@ public class GLContext {
     HardwareBuffer testHB = createTestHardwareBuffer();
     //long bufferPointer = HardwareBuffer.getNativeHardwareBuffer(testHB);
     Log.i("GLContext", "We did It! Width = "+ testHB.getWidth());
-    EXGLContextUploadTexture(mEXGLCtxId,testHB);
+    long jsContextRef = mJavaScriptContextProvider.getJavaScriptContextRef();
+    EXGLContextUploadTexture(jsContextRef,mEXGLCtxId,testHB);
   }
 
   public HardwareBuffer createTestHardwareBuffer() {

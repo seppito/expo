@@ -95,6 +95,7 @@ JNIEXPORT void JNICALL
 Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
     JNIEnv *env,
     jclass clazz,
+    jlong jsiPtr,
     jint exglCtxId,
     jobject hardwareBuffer) {
 
@@ -120,7 +121,7 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
                         desc.width, desc.height, desc.layers, desc.format, (unsigned long long)desc.usage);
 
     // Pass the native buffer to the EXGLContextUploadTexture function
-    EXGLContextUploadTexture(exglCtxId, nativeBuffer);
+    EXGLContextUploadTexture((void*) jsiPtr,exglCtxId, nativeBuffer);
 
     // Release the native buffer after use
     AHardwareBuffer_release(nativeBuffer);
@@ -137,16 +138,5 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
     __android_log_print(ANDROID_LOG_ERROR, "GLContext", "AHardwareBuffer not supported on this API level.");
 }
 #endif
-
-
-
-
-
-
-
-
-
-
-
 }
 
