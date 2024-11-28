@@ -4,20 +4,11 @@ import { GLView } from 'expo-gl';
 
 const CustomTestScreen = () => {
     async function onContextCreate(gl: any) {
-        try {
-            console.log("GL Context ID:", gl.contextId);
-            gl.clearColor(0.0, 1.0, 0.0, 1.0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-            gl.flush();
-            gl.endFrameEXP();
-        } catch (error) {
-            console.error("Error in onContextCreate:", error);
-        }
-
+        console.log("GL Context ID:", gl.contextId);
         try {
          await GLView.createTestHardwareBuffer(gl.contextId);
       } catch (error) {
-          console.error("Error in uploadBufferw:", error);
+          console.error("Error in uploadBuffer:", error);
       }
     }
 

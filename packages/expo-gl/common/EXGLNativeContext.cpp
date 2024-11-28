@@ -2,7 +2,7 @@
 #include "EXPlatformUtils.h"
 #include <GLES/gl.h> // OpenGL ES 1.0 headers
 #include <cstring> // For memcpy
-
+#include <android/bitmap.h> // For Android Bitmap API
 namespace expo {
 namespace gl_cpp {
 
@@ -20,34 +20,208 @@ void EXGLContext::prepareContext(jsi::Runtime &runtime, std::function<void(void)
     EXGLSysLog("Failed to setup EXGLContext [%s]", err.what());
   }
 }
+int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
+    // Ensure the hardwareBuffer remains valid
+    if (!hardwareBuffer) {
+        EXGLSysLog("Invalid hardware buffer");
+        return 0; // Return 0 to indicate an error
+    }
 
-int EXGLContext:: uploadTextureToOpenGL(jsi::Runtime &runtime,AHardwareBuffer *hardwareBuffer){
-  EXGLSysLog("Reached UploadTextureToOpenGL");
+    // Acquire the hardware buffer to increment its reference count
+    AHardwareBuffer_acquire(hardwareBuffer);
 
-  //This option is no longer valid because there is no version 1.2 available only the EGL 1.0
-  //EGLClientBuffer clientBuffer = eglGetNativeClientBufferANDROID(hardwareBuffer);
-  // We need to convert this hardware buffer to bitmap or back to RGBA in order to create a textureID.
-  /*
-  glesContext result;
-  // Clear everything to initial values
-  addFutureToNextBatch([&] {
-    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    // This should not be called on headless contexts as they don't have default framebuffer.
-    // On headless context, status is undefined.
-    if (status != GL_FRAMEBUFFER_UNDEFINED) {
-      glClearColor(1, 1, 1, 1);
-      glClearDepthf(1);
-      glClearStencil(0);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    } 
-  });
-  
-  */
-  
-  //return result;
-  return 1;
+    // Schedule the operation to be performed on the GL thread
+    jsi::Value exglObjId = addFutureToNextBatch(runtime, [=, this] {
+        AHardwareBuffer_Desc desc = {};
+        AHardwareBuffer_describe(hardwareBuffer, &desc);
+
+        if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
+            EXGLSysLog("Unsupported hardware buffer format");
+            AHardwareBuffer_release(hardwareBuffer);
+            return 0u; // Return 0 to indicate an error
+        }
+
+        // Lock the hardware buffer
+        void *bufferData = nullptr;
+        int32_t result = AHardwareBuffer_lock(
+            hardwareBuffer,
+            AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
+            -1,
+            nullptr,
+            &bufferData
+        );
+
+        if (result != 0 || !bufferData) {
+            EXGLSysLog("Failed to lock AHardwareBuffer");
+            AHardwareBuffer_release(hardwareBuffer);
+            return 0u; // Return 0 to indicate an error
+        }
+
+        EXGLSysLog("Locked Hardware Buffer");
+
+        // Create an OpenGL texture and upload the data
+        GLuint textureId = 0;
+        glGenTextures(1, &textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+
+        if (desc.stride != desc.width) {
+            // Handle non-tightly packed data
+            size_t dataSize = desc.width * desc.height * 4; // 4 bytes per pixel (RGBA)
+            std::vector<uint8_t> tightBuffer(dataSize);
+
+            uint8_t* src = static_cast<uint8_t*>(bufferData);
+            uint8_t* dst = tightBuffer.data();
+
+            for (uint32_t y = 0; y < desc.height; y++) {
+                memcpy(dst, src, desc.width * 4);
+                src += desc.stride * 4;
+                dst += desc.width * 4;
+            }
+
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGBA,
+                desc.width,
+                desc.height,
+                0,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                tightBuffer.data()
+            );
+        } else {
+            // Data is tightly packed, use bufferData directly
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGBA,
+                desc.width,
+                desc.height,
+                0,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                bufferData
+            );
+        }
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        EXGLSysLog("Texture ID GLUINT: %u", textureId);
+
+        // Unlock the hardware buffer
+        AHardwareBuffer_unlock(hardwareBuffer, nullptr);
+
+        // Release the hardware buffer
+        AHardwareBuffer_release(hardwareBuffer);
+
+        // Return the texture ID
+        return textureId;
+    });
+
+    // Return the EXGLObjectId
+    return static_cast<int>(exglObjId.asNumber());
 }
+
+/*
+
+int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
+    // Upload the bitmap data to OpenGL texture
+    auto exglObjId = addFutureToNextBatch(runtime, [=] {
+       glClearColor(0.0, 1.0, 0.0, 1.0);
+       clear(COLOR_BUFFER_BIT);
+
+
+    });
+    
+    
+    /*EXGLSysLog("Reached UploadTextureToOpenGL");
+
+
+    if (!hardwareBuffer) {
+        EXGLSysLog("Invalid hardware buffer");
+        return -1; // Indicate an error
+    }
+
+    // Describe the AHardwareBuffer
+    AHardwareBuffer_Desc desc;
+    AHardwareBuffer_describe(hardwareBuffer, &desc);
+
+    if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
+        EXGLSysLog("Unsupported hardware buffer format");
+        return -1;
+    }
+
+    void *bufferData = nullptr;
+    int32_t result = AHardwareBuffer_lock(
+        hardwareBuffer,
+        AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
+        -1,
+        nullptr,
+        &bufferData
+    );
+
+    if (result != 0 || !bufferData) {
+        EXGLSysLog("Failed to lock AHardwareBuffer");
+        return -1;
+    }
+
+    EXGLSysLog("Locked Hardware Buffer");
+
+    // Create a bitmap from the hardware buffer
+    AndroidBitmapInfo bitmapInfo = {};
+    bitmapInfo.width = desc.width;
+    bitmapInfo.height = desc.height;
+    bitmapInfo.format = ANDROID_BITMAP_FORMAT_RGBA_8888;
+    bitmapInfo.stride = desc.stride * 4; // 4 bytes per pixel
+
+    void *bitmapPixels = nullptr;
+    auto bitmapResult = AndroidBitmap_lockPixels(runtime,nullptr, &bitmapPixels);
+    if (bitmapResult != ANDROID_BITMAP_RESULT_SUCCESS || !bitmapPixels) {
+        EXGLSysLog("Failed to lock Bitmap");
+        AHardwareBuffer_unlock(hardwareBuffer, nullptr);
+        return -1;
+    }
+
+    memcpy(bitmapPixels, bufferData, desc.height * bitmapInfo.stride);
+    AndroidBitmap_unlockPixels(nullptr);
+
+    // Unlock the buffer
+    AHardwareBuffer_unlock(hardwareBuffer, nullptr);
+
+    
+
+    // Upload the bitmap data to OpenGL texture
+    auto exglObjId = addFutureToNextBatch(runtime, [=] {
+        GLuint textureId;
+        glGenTextures(1, &textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            desc.width,
+            desc.height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            bitmapPixels // Use the bitmap pixels instead of bufferData
+        );
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        EXGLSysLog("Texture ID GLUINT: %d", textureId);
+
+        return textureId;
+    });
+    
+
+    // return static_cast<double>(exglObjId);; // Return the OpenGL texture ID
+}
+
+*/
 
 void EXGLContext::maybeResolveWorkletContext(jsi::Runtime &runtime) {
   jsi::Value workletRuntimeValue = runtime.global().getProperty(runtime, "_WORKLET_RUNTIME");
