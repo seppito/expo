@@ -6,7 +6,10 @@ const CustomTestScreen = () => {
     async function onContextCreate(gl: any) {
         console.log("GL Context ID:", gl.contextId);
         try {
+         // Testing that 2 textures have been created.
          await GLView.createTestHardwareBuffer(gl.contextId);
+         await GLView.createTestHardwareBuffer(gl.contextId);
+
       } catch (error) {
           console.error("Error in uploadBuffer:", error);
       }
