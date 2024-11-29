@@ -35,8 +35,7 @@ export class GLView extends React.Component {
         return getGl(exglCtxId);
     }
     static async createTestHardwareBuffer(exglCtxId) {
-        await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId);
-        return getGl(exglCtxId);
+        return await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId);
     }
     /**
      * Destroys given context.

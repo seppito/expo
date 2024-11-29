@@ -89,10 +89,12 @@ class GLObjectManagerModule : Module() {
     AsyncFunction("uploadAHardwareBufferAsync") { exglCtxId: Int, promise: Promise ->
       val context = mGLContextMap[exglCtxId]
         ?: throw InvalidGLContextException()
-
-      context.push_texture_from_native_buffer()
-
-      promise.resolve(1)
+      val exglObjId = context.push_texture_from_native_buffer()
+      //val results = Bundle()
+      
+      
+      //results.putInt("exglObjId", exglObjId)
+      promise.resolve(exglObjId)
     }
   }
 

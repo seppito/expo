@@ -3,6 +3,8 @@
 #include <GLES/gl.h> // OpenGL ES 1.0 headers
 #include <cstring> // For memcpy
 #include <android/bitmap.h> // For Android Bitmap API
+#include <cstdint> // for uint32_t
+
 namespace expo {
 namespace gl_cpp {
 
@@ -20,6 +22,57 @@ void EXGLContext::prepareContext(jsi::Runtime &runtime, std::function<void(void)
     EXGLSysLog("Failed to setup EXGLContext [%s]", err.what());
   }
 }
+
+/**
+ * Fills an AHardwareBuffer with a specific color.
+ * 
+ * @param nativeBuffer Pointer to the AHardwareBuffer to be filled.
+ * @param color The color to fill (RGBA format, e.g., 0xFF0000FF for solid red).
+ * @return True if successful, false otherwise.
+ */
+bool EXGLContext::FillAHardwareBuffer(AHardwareBuffer* nativeBuffer, uint32_t color) {
+    if (!nativeBuffer) {
+        return false; // Null buffer
+    }
+
+    // Describe the buffer to understand its format and dimensions
+    AHardwareBuffer_Desc desc;
+    AHardwareBuffer_describe(nativeBuffer, &desc);
+
+    // Ensure the buffer format is supported
+    if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
+        return false; // Unsupported format
+    }
+
+    // Lock the buffer for writing
+    void* bufferData = nullptr;
+    int lockResult = AHardwareBuffer_lock(
+        nativeBuffer,
+        AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN,
+        -1, // No fence
+        nullptr, // Lock the entire buffer
+        &bufferData
+    );
+
+    if (lockResult != 0 || !bufferData) {
+        return false; // Failed to lock the buffer
+    }
+
+    // Fill the buffer with the specified color
+    size_t pixelCount = desc.width * desc.height;
+    uint32_t* pixels = static_cast<uint32_t*>(bufferData);
+
+    for (size_t i = 0; i < pixelCount; ++i) {
+        pixels[i] = color; // Set each pixel to the specified color
+    }
+
+    // Unlock the buffer
+    AHardwareBuffer_unlock(nativeBuffer, nullptr);
+
+    return true; // Successfully filled
+}
+
+
 int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
     // Ensure the hardwareBuffer remains valid
     if (!hardwareBuffer) {
@@ -27,9 +80,17 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
         return 0; // Return 0 to indicate an error
     }
 
-    // Acquire the hardware buffer to increment its reference count
-    AHardwareBuffer_acquire(hardwareBuffer);
+    uint32_t redColor = 0xFF0000FF; // ABGR order in little-endian
 
+    if(FillAHardwareBuffer(hardwareBuffer,redColor)){
+        EXGLSysLog("Success");
+    } else{
+        EXGLSysLog("Not Success");
+    }
+
+    // Acquire the hardware buffer to increment its reference count
+    EXGLSysLog("AHardwareBuffer_acquire to be called.");
+    AHardwareBuffer_acquire(hardwareBuffer);
     // Schedule the operation to be performed on the GL thread
     jsi::Value exglObjId = addFutureToNextBatch(runtime, [=, this] {
         AHardwareBuffer_Desc desc = {};
@@ -118,25 +179,19 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
         // Return the texture ID
         return textureId;
     });
-
+    EXGLSysLog("Pre-exGLObjId %d",exglObjId.asNumber());
     // Return the EXGLObjectId
     return static_cast<int>(exglObjId.asNumber());
 }
 
 /*
-
 int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
     // Upload the bitmap data to OpenGL texture
     auto exglObjId = addFutureToNextBatch(runtime, [=] {
        glClearColor(0.0, 1.0, 0.0, 1.0);
        clear(COLOR_BUFFER_BIT);
-
-
     });
-    
-    
     /*EXGLSysLog("Reached UploadTextureToOpenGL");
-
 
     if (!hardwareBuffer) {
         EXGLSysLog("Invalid hardware buffer");
@@ -189,8 +244,6 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     // Unlock the buffer
     AHardwareBuffer_unlock(hardwareBuffer, nullptr);
 
-    
-
     // Upload the bitmap data to OpenGL texture
     auto exglObjId = addFutureToNextBatch(runtime, [=] {
         GLuint textureId;
@@ -216,13 +269,9 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
 
         return textureId;
     });
-    
-
     // return static_cast<double>(exglObjId);; // Return the OpenGL texture ID
 }
-
 */
-
 void EXGLContext::maybeResolveWorkletContext(jsi::Runtime &runtime) {
   jsi::Value workletRuntimeValue = runtime.global().getProperty(runtime, "_WORKLET_RUNTIME");
   if (!workletRuntimeValue.isObject()) {

@@ -18,8 +18,9 @@ void EXGLContextPrepare(
     exglCtx->prepareContext(*reinterpret_cast<jsi::Runtime *>(jsiPtr), flushMethod);
   }
 }
-void EXGLContextUploadTexture(void *jsiPtr, EXGLContextId exglCtxId, AHardwareBuffer *hardwareBuffer) {
+EXGLObjectId EXGLContextUploadTexture(void *jsiPtr, EXGLContextId exglCtxId, AHardwareBuffer *hardwareBuffer) {
   // Get the context and lock it
+  EXGLObjectId textureId = 0;
   auto [exglCtx, lock] = ContextGet(exglCtxId);
   __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Context Upload Texture was called.");
 
@@ -27,7 +28,7 @@ void EXGLContextUploadTexture(void *jsiPtr, EXGLContextId exglCtxId, AHardwareBu
     __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Executing uploadTextureToOpenGL.");
 
     // Call uploadTextureToOpenGL and capture the texture ID
-    int textureId = exglCtx->uploadTextureToOpenGL(*reinterpret_cast<jsi::Runtime *>(jsiPtr), hardwareBuffer);
+    textureId = exglCtx->uploadTextureToOpenGL(*reinterpret_cast<jsi::Runtime *>(jsiPtr), hardwareBuffer);
 
     // Log the texture ID
     __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Texture ID created: %d", textureId);
@@ -35,6 +36,7 @@ void EXGLContextUploadTexture(void *jsiPtr, EXGLContextId exglCtxId, AHardwareBu
   } else {
     __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Context Upload Texture Failed.");
   }
+  return textureId;
 }
 
 

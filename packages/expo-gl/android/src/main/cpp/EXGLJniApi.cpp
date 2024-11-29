@@ -91,7 +91,7 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextDrawEnded
 }
 
 #if __ANDROID_API__ >= 26
-JNIEXPORT void JNICALL
+JNIEXPORT jint JNICALL
 Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
     JNIEnv *env,
     jclass clazz,
@@ -101,14 +101,14 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
 
     if (hardwareBuffer == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "HardwareBuffer is null");
-        return;
+        return 0;
     }
 
     // Convert jobject to AHardwareBuffer*
     AHardwareBuffer *nativeBuffer = AHardwareBuffer_fromHardwareBuffer(env, hardwareBuffer);
     if (nativeBuffer == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Failed to convert HardwareBuffer to native AHardwareBuffer");
-        return;
+        return 0;
     }
 
     // Describe the HardwareBuffer to get its dimensions
@@ -121,11 +121,12 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
                         desc.width, desc.height, desc.layers, desc.format, (unsigned long long)desc.usage);
 
     // Pass the native buffer to the EXGLContextUploadTexture function
-    EXGLContextUploadTexture((void*) jsiPtr,exglCtxId, nativeBuffer);
+    auto exlObj = EXGLContextUploadTexture((void*) jsiPtr,exglCtxId, nativeBuffer);
 
     // Release the native buffer after use
     AHardwareBuffer_release(nativeBuffer);
     __android_log_print(ANDROID_LOG_INFO, "EXGLJni", "Uploaded texture and released HardwareBuffer.");
+    return exlObj;
 }
 #else
 JNIEXPORT void JNICALL

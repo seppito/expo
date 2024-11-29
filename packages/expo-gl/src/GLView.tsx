@@ -64,10 +64,8 @@ export class GLView extends React.Component<GLViewProps> {
     return getGl(exglCtxId);
   }
 
-  static async createTestHardwareBuffer(exglCtxId: number): Promise<ExpoWebGLRenderingContext>{
-    await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId);
-    return getGl(exglCtxId)
-
+  static async createTestHardwareBuffer(exglCtxId: number): Promise<any>{
+    return await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId);
   }
   /**
    * Destroys given context.

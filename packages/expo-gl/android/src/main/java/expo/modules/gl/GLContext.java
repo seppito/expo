@@ -48,7 +48,7 @@ public class GLContext {
   private EGLContext mEGLContext;
   private EGLConfig mEGLConfig;
   private EGL10 mEGL;
-
+  private HardwareBuffer currentHB;
   private BlockingQueue<Runnable> mEventQueue = new LinkedBlockingQueue<>();
   private JavaScriptContextProvider mJavaScriptContextProvider; // Declare as a property
 
@@ -471,12 +471,14 @@ public class GLContext {
     return (Integer) value;
   }
 
-  public void push_texture_from_native_buffer(){
-    HardwareBuffer testHB = createTestHardwareBuffer();
+  public int  push_texture_from_native_buffer(){
+    currentHB = createTestHardwareBuffer();
     //long bufferPointer = HardwareBuffer.getNativeHardwareBuffer(testHB);
-    Log.i("GLContext", "We did It! Width = "+ testHB.getWidth());
+    Log.i("GLContext", "We did It! Width = "+ currentHB.getWidth());
     long jsContextRef = mJavaScriptContextProvider.getJavaScriptContextRef();
-    EXGLContextUploadTexture(jsContextRef,mEXGLCtxId,testHB);
+    int objVal = EXGLContextUploadTexture(jsContextRef,mEXGLCtxId,currentHB);
+    Log.i("GLContext", "objVal "+ objVal);
+    return objVal;
   }
 
   public HardwareBuffer createTestHardwareBuffer() {
