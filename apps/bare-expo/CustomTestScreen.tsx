@@ -23,29 +23,20 @@ const CustomTestScreen = () => {
       console.error("Error creating texture:", error);
       return;
     }
-  
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-      gl.clearColor(0, 0, 1.0, 1.0); // Clear to white
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      checkGLError("initial clear");
-  
-      // Bind and configure texture
-      gl.bindTexture(gl.TEXTURE_2D, textureId);
-      checkGLError("binding texture");
-  
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      checkGLError("setting TEXTURE_MIN_FILTER");
-  
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      checkGLError("setting TEXTURE_MAG_FILTER");
-  
-      // Clear with texture bound
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      checkGLError("clearing after texture bind");
-  
-      gl.flush();
-      gl.endFrameEXP();
-    
+    checkGLError("Texture Creation");
+    gl.bindTexture(gl.TEXTURE_2D, textureId);
+    // attach texture to framebuffer
+    //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureId, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureId, 0);
+
+
+    // set texture parameters
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.flush();
+    gl.endFrameEXP();
   }
   
   

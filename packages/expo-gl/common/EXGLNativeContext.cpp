@@ -4,6 +4,9 @@
 #include <cstring> // For memcpy
 #include <android/bitmap.h> // For Android Bitmap API
 #include <cstdint> // for uint32_t
+#include "EXWebGLMethods.h"
+#include "EXWebGLMethodsHelpers.h"
+//#include "EXWebGLConstants.def"
 
 namespace expo {
 namespace gl_cpp {
@@ -24,13 +27,20 @@ void EXGLContext::prepareContext(jsi::Runtime &runtime, std::function<void(void)
 }
 
 /**
- * Fills an AHardwareBuffer with a specific color.
+ * Fills an AHardwareBuffer with a checkerboard pattern.
  * 
  * @param nativeBuffer Pointer to the AHardwareBuffer to be filled.
- * @param color The color to fill (RGBA format, e.g., 0xFF0000FF for solid red).
+ * @param color1 The first color in the checkerboard (RGBA format, e.g., 0xFF0000FF for solid red).
+ * @param color2 The second color in the checkerboard (RGBA format, e.g., 0xFFFFFFFF for white).
+ * @param checkerSize The size of each square in the checkerboard pattern (in pixels).
  * @return True if successful, false otherwise.
  */
-bool EXGLContext::FillAHardwareBuffer(AHardwareBuffer* nativeBuffer, uint32_t color) {
+bool EXGLContext::FillAHardwareBufferWithCheckerboard(
+    AHardwareBuffer* nativeBuffer, 
+    uint32_t color1, 
+    uint32_t color2, 
+    uint32_t checkerSize
+) {
     if (!nativeBuffer) {
         return false; // Null buffer
     }
@@ -58,12 +68,18 @@ bool EXGLContext::FillAHardwareBuffer(AHardwareBuffer* nativeBuffer, uint32_t co
         return false; // Failed to lock the buffer
     }
 
-    // Fill the buffer with the specified color
-    size_t pixelCount = desc.width * desc.height;
+    // Fill the buffer with the checkerboard pattern
     uint32_t* pixels = static_cast<uint32_t*>(bufferData);
+    for (uint32_t y = 0; y < desc.height; ++y) {
+        for (uint32_t x = 0; x < desc.width; ++x) {
+            // Determine whether this pixel is in color1 or color2
+            uint32_t checkerX = x / checkerSize;
+            uint32_t checkerY = y / checkerSize;
+            bool isColor1 = (checkerX + checkerY) % 2 == 0;
 
-    for (size_t i = 0; i < pixelCount; ++i) {
-        pixels[i] = color; // Set each pixel to the specified color
+            // Set the pixel color
+            pixels[y * desc.width + x] = isColor1 ? color1 : color2;
+        }
     }
 
     // Unlock the buffer
@@ -74,64 +90,77 @@ bool EXGLContext::FillAHardwareBuffer(AHardwareBuffer* nativeBuffer, uint32_t co
 
 
 int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
-    // Ensure the hardwareBuffer remains valid
-    if (!hardwareBuffer) {
-        EXGLSysLog("Invalid hardware buffer");
-        return 0; // Return 0 to indicate an error
-    }
+    uint32_t red = 0xFF0000FF;   // Solid red (RGBA)
+    uint32_t white = 0xFFFFFFFF; // Solid white (RGBA)
+    uint32_t squareSize = 8;     // 8x8 pixels per square
 
-    uint32_t redColor = 0xFF0000FF; // ABGR order in little-endian
-
-    if(FillAHardwareBuffer(hardwareBuffer,redColor)){
-        EXGLSysLog("Success");
+    if(FillAHardwareBufferWithCheckerboard(hardwareBuffer, red, white, squareSize)){
+        EXGLSysLog("Success, colored");
     } else{
         EXGLSysLog("Not Success");
     }
+    // Call the native method and get the WebGL object
+    jsi::Value result = exglGenObject(this, runtime, glGenTextures, EXWebGLClass::WebGLTexture);
 
+    // Ensure the result is an object
+    if (!result.isObject()) {
+        throw std::runtime_error("Error: exglGenObject did not return a valid WebGL object.");
+    }
+
+    // Extract the 'id' property from the WebGL object
+    jsi::Object webglObject = result.asObject(runtime);
+    jsi::Value idValue = webglObject.getProperty(runtime, "id");
+
+    // Ensure the 'id' is a number
+    if (!idValue.isNumber()) {
+        throw std::runtime_error("Error: WebGL object 'id' property is not a valid number.");
+    }
+
+    // Convert the 'id' to EXGLObjectId
+    EXGLObjectId texture = static_cast<EXGLObjectId>(idValue.asNumber());
+    
+    
+    EXGLSysLog("TextureId is %d",texture);
     // Acquire the hardware buffer to increment its reference count
-    EXGLSysLog("AHardwareBuffer_acquire to be called.");
     AHardwareBuffer_acquire(hardwareBuffer);
-    // Schedule the operation to be performed on the GL thread
-    jsi::Value exglObjId = addFutureToNextBatch(runtime, [=, this] {
-        AHardwareBuffer_Desc desc = {};
-        AHardwareBuffer_describe(hardwareBuffer, &desc);
+    AHardwareBuffer_Desc desc = {};
+    AHardwareBuffer_describe(hardwareBuffer, &desc);
+    if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
+          EXGLSysLog("Unsupported hardware buffer format");
+          AHardwareBuffer_release(hardwareBuffer);
+          return 0u; // Return 0 to indicate an error
+    }
+    void *bufferData = nullptr;
+    int32_t lock_result = AHardwareBuffer_lock(
+        hardwareBuffer,
+        AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
+        -1,
+        nullptr,
+        &bufferData
+    );
 
-        if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
-            EXGLSysLog("Unsupported hardware buffer format");
-            AHardwareBuffer_release(hardwareBuffer);
-            return 0u; // Return 0 to indicate an error
-        }
+    if (lock_result != 0 || !bufferData) {
+        EXGLSysLog("Failed to lock AHardwareBuffer");
+        AHardwareBuffer_release(hardwareBuffer);
+        return 0u; // Return 0 to indicate an error
+    }
+    EXGLSysLog("Locked Hardware Buffer");
 
+    // Example OpenGL operation using the texture ID
+    //static int TEXTURE_2D_CONST = 3553; // GL_TEXTURE_2D constant
+    addToNextBatch([=] {
         // Lock the hardware buffer
-        void *bufferData = nullptr;
-        int32_t result = AHardwareBuffer_lock(
-            hardwareBuffer,
-            AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
-            -1,
-            nullptr,
-            &bufferData
-        );
+      glBindTexture(GL_TEXTURE_2D, lookupObject(texture));  
+     });
 
-        if (result != 0 || !bufferData) {
-            EXGLSysLog("Failed to lock AHardwareBuffer");
-            AHardwareBuffer_release(hardwareBuffer);
-            return 0u; // Return 0 to indicate an error
-        }
-
-        EXGLSysLog("Locked Hardware Buffer");
-
-        // Create an OpenGL texture and upload the data
-        GLuint textureId = 0;
-        glGenTextures(1, &textureId);
-        glBindTexture(GL_TEXTURE_2D, textureId);
-
-        if (desc.stride != desc.width) {
+    if (desc.stride != desc.width) {
             // Handle non-tightly packed data
             size_t dataSize = desc.width * desc.height * 4; // 4 bytes per pixel (RGBA)
             std::vector<uint8_t> tightBuffer(dataSize);
 
             uint8_t* src = static_cast<uint8_t*>(bufferData);
             uint8_t* dst = tightBuffer.data();
+            EXGLSysLog("Diff than width");
 
             for (uint32_t y = 0; y < desc.height; y++) {
                 memcpy(dst, src, desc.width * 4);
@@ -139,20 +168,27 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
                 dst += desc.width * 4;
             }
 
-            glTexImage2D(
-                GL_TEXTURE_2D,
-                0,
-                GL_RGBA,
-                desc.width,
-                desc.height,
-                0,
-                GL_RGBA,
-                GL_UNSIGNED_BYTE,
-                tightBuffer.data()
-            );
+            addToNextBatch([=] {
+                // Lock the hardware buffer
+              glTexImage2D(
+                        GL_TEXTURE_2D,
+                        0,
+                        GL_RGBA,
+                        desc.width,
+                        desc.height,
+                        0,
+                        GL_RGBA,
+                        GL_UNSIGNED_BYTE,
+                        tightBuffer.data()
+                    );
+              });
         } else {
+            EXGLSysLog("Data is tightly packed");
+
             // Data is tightly packed, use bufferData directly
-            glTexImage2D(
+            addToNextBatch([&] {
+                // Lock the hardware buffer
+              glTexImage2D(
                 GL_TEXTURE_2D,
                 0,
                 GL_RGBA,
@@ -163,115 +199,21 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
                 GL_UNSIGNED_BYTE,
                 bufferData
             );
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    // Unlock the hardware buffer
+            //AHardwareBuffer_unlock(hardwareBuffer, nullptr);
+
+            // Release the hardware buffer
+            //AHardwareBuffer_release(hardwareBuffer);
+          });
+
         }
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        EXGLSysLog("Texture ID GLUINT: %u", textureId);
-
-        // Unlock the hardware buffer
-        AHardwareBuffer_unlock(hardwareBuffer, nullptr);
-
-        // Release the hardware buffer
-        AHardwareBuffer_release(hardwareBuffer);
-
-        // Return the texture ID
-        return textureId;
-    });
-    EXGLSysLog("Pre-exGLObjId %d",exglObjId.asNumber());
-    // Return the EXGLObjectId
-    return static_cast<int>(exglObjId.asNumber());
+    // Return the texture ID or any other relevant result
+    return static_cast<int>(texture);
 }
 
-/*
-int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
-    // Upload the bitmap data to OpenGL texture
-    auto exglObjId = addFutureToNextBatch(runtime, [=] {
-       glClearColor(0.0, 1.0, 0.0, 1.0);
-       clear(COLOR_BUFFER_BIT);
-    });
-    /*EXGLSysLog("Reached UploadTextureToOpenGL");
-
-    if (!hardwareBuffer) {
-        EXGLSysLog("Invalid hardware buffer");
-        return -1; // Indicate an error
-    }
-
-    // Describe the AHardwareBuffer
-    AHardwareBuffer_Desc desc;
-    AHardwareBuffer_describe(hardwareBuffer, &desc);
-
-    if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
-        EXGLSysLog("Unsupported hardware buffer format");
-        return -1;
-    }
-
-    void *bufferData = nullptr;
-    int32_t result = AHardwareBuffer_lock(
-        hardwareBuffer,
-        AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
-        -1,
-        nullptr,
-        &bufferData
-    );
-
-    if (result != 0 || !bufferData) {
-        EXGLSysLog("Failed to lock AHardwareBuffer");
-        return -1;
-    }
-
-    EXGLSysLog("Locked Hardware Buffer");
-
-    // Create a bitmap from the hardware buffer
-    AndroidBitmapInfo bitmapInfo = {};
-    bitmapInfo.width = desc.width;
-    bitmapInfo.height = desc.height;
-    bitmapInfo.format = ANDROID_BITMAP_FORMAT_RGBA_8888;
-    bitmapInfo.stride = desc.stride * 4; // 4 bytes per pixel
-
-    void *bitmapPixels = nullptr;
-    auto bitmapResult = AndroidBitmap_lockPixels(runtime,nullptr, &bitmapPixels);
-    if (bitmapResult != ANDROID_BITMAP_RESULT_SUCCESS || !bitmapPixels) {
-        EXGLSysLog("Failed to lock Bitmap");
-        AHardwareBuffer_unlock(hardwareBuffer, nullptr);
-        return -1;
-    }
-
-    memcpy(bitmapPixels, bufferData, desc.height * bitmapInfo.stride);
-    AndroidBitmap_unlockPixels(nullptr);
-
-    // Unlock the buffer
-    AHardwareBuffer_unlock(hardwareBuffer, nullptr);
-
-    // Upload the bitmap data to OpenGL texture
-    auto exglObjId = addFutureToNextBatch(runtime, [=] {
-        GLuint textureId;
-        glGenTextures(1, &textureId);
-        glBindTexture(GL_TEXTURE_2D, textureId);
-
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_RGBA,
-            desc.width,
-            desc.height,
-            0,
-            GL_RGBA,
-            GL_UNSIGNED_BYTE,
-            bitmapPixels // Use the bitmap pixels instead of bufferData
-        );
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        EXGLSysLog("Texture ID GLUINT: %d", textureId);
-
-        return textureId;
-    });
-    // return static_cast<double>(exglObjId);; // Return the OpenGL texture ID
-}
-*/
 void EXGLContext::maybeResolveWorkletContext(jsi::Runtime &runtime) {
   jsi::Value workletRuntimeValue = runtime.global().getProperty(runtime, "_WORKLET_RUNTIME");
   if (!workletRuntimeValue.isObject()) {

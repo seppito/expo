@@ -125,7 +125,7 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
 
     // Release the native buffer after use
     AHardwareBuffer_release(nativeBuffer);
-    __android_log_print(ANDROID_LOG_INFO, "EXGLJni", "Uploaded texture and released HardwareBuffer.");
+    __android_log_print(ANDROID_LOG_INFO, "EXGLJni", "Uploaded texture %d and released HardwareBuffer.",exlObj);
     return exlObj;
 }
 #else

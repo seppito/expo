@@ -28,7 +28,7 @@ EXGLObjectId EXGLContextUploadTexture(void *jsiPtr, EXGLContextId exglCtxId, AHa
     __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Executing uploadTextureToOpenGL.");
 
     // Call uploadTextureToOpenGL and capture the texture ID
-    textureId = exglCtx->uploadTextureToOpenGL(*reinterpret_cast<jsi::Runtime *>(jsiPtr), hardwareBuffer);
+  textureId = exglCtx->uploadTextureToOpenGL(*reinterpret_cast<jsi::Runtime *>(jsiPtr), hardwareBuffer);
 
     // Log the texture ID
     __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Texture ID created: %d", textureId);
