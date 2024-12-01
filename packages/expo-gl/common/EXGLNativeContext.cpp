@@ -107,6 +107,8 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
         throw std::runtime_error("Error: exglGenObject did not return a valid WebGL object.");
     }
 
+    this->flush();
+
     // Extract the 'id' property from the WebGL object
     jsi::Object webglObject = result.asObject(runtime);
     jsi::Value idValue = webglObject.getProperty(runtime, "id");
@@ -151,9 +153,13 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     addToNextBatch([=] {
         // Lock the hardware buffer
       glBindTexture(GL_TEXTURE_2D, lookupObject(texture));  
-     });
+    });
+    this->flush();
 
-    if (desc.stride != desc.width) {
+
+   /*
+
+   if (desc.stride != desc.width) {
             // Handle non-tightly packed data
             size_t dataSize = desc.width * desc.height * 4; // 4 bytes per pixel (RGBA)
             std::vector<uint8_t> tightBuffer(dataSize);
@@ -210,7 +216,9 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
 
         }
 
-    // Return the texture ID or any other relevant result
+
+   */ 
+        // Return the texture ID or any other relevant result
     return static_cast<int>(texture);
 }
 

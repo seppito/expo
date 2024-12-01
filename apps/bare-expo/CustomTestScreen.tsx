@@ -11,6 +11,7 @@ const CustomTestScreen = () => {
         console.error(`OpenGL error after ${step}:`, error);
       }
     }
+    gl.createTexture();
     let textureId;
     try {
       textureId = await GLView.createTestHardwareBuffer(gl.contextId);
@@ -28,7 +29,6 @@ const CustomTestScreen = () => {
     // attach texture to framebuffer
     //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureId, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureId, 0);
-
 
     // set texture parameters
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
