@@ -42,16 +42,20 @@ bool EXGLContext::FillAHardwareBufferWithCheckerboard(
     uint32_t checkerSize
 ) {
     if (!nativeBuffer) {
-        return false; // Null buffer
+        EXGLSysLog("FillAHardwareBufferWithCheckerboard: Null buffer");
+        return false;
     }
 
-    // Describe the buffer to understand its format and dimensions
+    // Describe the buffer
     AHardwareBuffer_Desc desc;
     AHardwareBuffer_describe(nativeBuffer, &desc);
 
+    EXGLSysLog("Hardware buffer dimensions: width=%d, height=%d, stride=%d", desc.width, desc.height, desc.stride);
+
     // Ensure the buffer format is supported
     if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
-        return false; // Unsupported format
+        EXGLSysLog("Unsupported hardware buffer format: %d", desc.format);
+        return false;
     }
 
     // Lock the buffer for writing
@@ -65,27 +69,27 @@ bool EXGLContext::FillAHardwareBufferWithCheckerboard(
     );
 
     if (lockResult != 0 || !bufferData) {
-        return false; // Failed to lock the buffer
+        EXGLSysLog("Failed to lock hardware buffer for writing");
+        return false;
     }
 
-    // Fill the buffer with the checkerboard pattern
+    // Fill the buffer with a checkerboard pattern
     uint32_t* pixels = static_cast<uint32_t*>(bufferData);
     for (uint32_t y = 0; y < desc.height; ++y) {
         for (uint32_t x = 0; x < desc.width; ++x) {
-            // Determine whether this pixel is in color1 or color2
             uint32_t checkerX = x / checkerSize;
             uint32_t checkerY = y / checkerSize;
             bool isColor1 = (checkerX + checkerY) % 2 == 0;
 
-            // Set the pixel color
-            pixels[y * desc.width + x] = isColor1 ? color1 : color2;
+            pixels[y * desc.stride + x] = isColor1 ? color1 : color2;
         }
     }
 
     // Unlock the buffer
     AHardwareBuffer_unlock(nativeBuffer, nullptr);
+    EXGLSysLog("Checkerboard pattern written to hardware buffer");
 
-    return true; // Successfully filled
+    return true;
 }
 
 
@@ -102,12 +106,22 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     // Call the native method and get the WebGL object
     jsi::Value result = exglGenObject(this, runtime, glGenTextures, EXWebGLClass::WebGLTexture);
 
+    // This is to validate that we're currently clearing the color from the GL thread to the JS thread.
+    addToNextBatch([=] {
+      glClearColor(1, 0, 0, 1);
+      glClearDepthf(1);
+      glClearStencil(0);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    });
+
+    this->flush();
+
     // Ensure the result is an object
     if (!result.isObject()) {
         throw std::runtime_error("Error: exglGenObject did not return a valid WebGL object.");
     }
 
-    this->flush();
 
     // Extract the 'id' property from the WebGL object
     jsi::Object webglObject = result.asObject(runtime);
@@ -156,9 +170,6 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     });
     this->flush();
 
-
-   /*
-
    if (desc.stride != desc.width) {
             // Handle non-tightly packed data
             size_t dataSize = desc.width * desc.height * 4; // 4 bytes per pixel (RGBA)
@@ -192,7 +203,7 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
             EXGLSysLog("Data is tightly packed");
 
             // Data is tightly packed, use bufferData directly
-            addToNextBatch([&] {
+            addToNextBatch([=] {
                 // Lock the hardware buffer
               glTexImage2D(
                 GL_TEXTURE_2D,
@@ -205,20 +216,20 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
                 GL_UNSIGNED_BYTE,
                 bufferData
             );
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                    // Unlock the hardware buffer
-            //AHardwareBuffer_unlock(hardwareBuffer, nullptr);
+            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-            // Release the hardware buffer
-            //AHardwareBuffer_release(hardwareBuffer);
           });
-
         }
+    this->flush();
 
+    // Unlock the hardware buffer
+    AHardwareBuffer_unlock(hardwareBuffer, nullptr);
 
-   */ 
-        // Return the texture ID or any other relevant result
+    // Release the hardware buffer
+    AHardwareBuffer_release(hardwareBuffer);
+   
+    // Return the texture ID or any other relevant result
     return static_cast<int>(texture);
 }
 

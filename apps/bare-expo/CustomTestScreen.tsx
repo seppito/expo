@@ -5,13 +5,15 @@ import { GLView } from 'expo-gl';
 const CustomTestScreen = () => {
   async function onContextCreate(gl: any) {
     console.log("GL Context ID:", gl.contextId);
+    //gl.activeTexture(gl.TEXTURE0);
+
     function checkGLError(step) {
       const error = gl.getError();
       if (error !== gl.NO_ERROR) {
         console.error(`OpenGL error after ${step}:`, error);
       }
     }
-    gl.createTexture();
+    //gl.createTexture();
     let textureId;
     try {
       textureId = await GLView.createTestHardwareBuffer(gl.contextId);
@@ -25,22 +27,44 @@ const CustomTestScreen = () => {
       return;
     }
     checkGLError("Texture Creation");
-    gl.bindTexture(gl.TEXTURE_2D, textureId);
-    // attach texture to framebuffer
+    gl.bindTexture(gl.TEXTURE_2D, textureId)
+    checkGLError("Bind Texture");
+      // attach texture to framebuffer
     //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureId, 0);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureId, 0);
+    //checkGLError("Bind Frame Buffer");
 
     // set texture parameters
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    
+    // attach texture to framebuffer
+    //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureId, 0);
+    //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureId, 0);
+    checkGLError("After Clamp.");
+
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0, // Attachment point
+      gl.TEXTURE_2D,
+      textureId,
+      0 // Level of detail
+    );
+
     gl.flush();
     gl.endFrameEXP();
+
+
+    // Check framebuffer completeness
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      console.error("Framebuffer is not complete:", status);
+    } else {
+      console.log("Framebuffer is complete");
+    }
+
   }
-  
-  
-  
 
     return (
       <View style={styles.container}>
