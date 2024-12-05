@@ -69,7 +69,6 @@ bool EXGLContext::FillAHardwareBufferWithCheckerboard(
     );
 
     if (lockResult != 0 || !bufferData) {
-        EXGLSysLog("Failed to lock hardware buffer for writing");
         return false;
     }
 
@@ -85,67 +84,41 @@ bool EXGLContext::FillAHardwareBufferWithCheckerboard(
         }
     }
 
-    // Unlock the buffer
     AHardwareBuffer_unlock(nativeBuffer, nullptr);
     EXGLSysLog("Checkerboard pattern written to hardware buffer");
 
     return true;
 }
 
-
 int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
     uint32_t red = 0xFF0000FF;   // Solid red (RGBA)
     uint32_t white = 0xFFFFFFFF; // Solid white (RGBA)
-    uint32_t squareSize = 8;     // 8x8 pixels per square
+    uint32_t squareSize = 32;     // 8x8 pixels per square
 
-    if(FillAHardwareBufferWithCheckerboard(hardwareBuffer, red, white, squareSize)){
+    // Fill the hardware buffer with a checkerboard pattern
+    if (FillAHardwareBufferWithCheckerboard(hardwareBuffer, red, white, squareSize)) {
         EXGLSysLog("Success, colored");
-    } else{
-        EXGLSysLog("Not Success");
-    }
-    // Call the native method and get the WebGL object
-    jsi::Value result = exglGenObject(this, runtime, glGenTextures, EXWebGLClass::WebGLTexture);
-
-    // This is to validate that we're currently clearing the color from the GL thread to the JS thread.
-    addToNextBatch([=] {
-      glClearColor(1, 0, 0, 1);
-      glClearDepthf(1);
-      glClearStencil(0);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-    });
-
-    this->flush();
-
-    // Ensure the result is an object
-    if (!result.isObject()) {
-        throw std::runtime_error("Error: exglGenObject did not return a valid WebGL object.");
+    } else {
+        EXGLSysLog("Failed to fill hardware buffer");
     }
 
+    // Create a new EXGL object ID
+    auto exglObjId = createObject();
 
-    // Extract the 'id' property from the WebGL object
-    jsi::Object webglObject = result.asObject(runtime);
-    jsi::Value idValue = webglObject.getProperty(runtime, "id");
-
-    // Ensure the 'id' is a number
-    if (!idValue.isNumber()) {
-        throw std::runtime_error("Error: WebGL object 'id' property is not a valid number.");
-    }
-
-    // Convert the 'id' to EXGLObjectId
-    EXGLObjectId texture = static_cast<EXGLObjectId>(idValue.asNumber());
-    
-    
-    EXGLSysLog("TextureId is %d",texture);
     // Acquire the hardware buffer to increment its reference count
     AHardwareBuffer_acquire(hardwareBuffer);
+
     AHardwareBuffer_Desc desc = {};
     AHardwareBuffer_describe(hardwareBuffer, &desc);
+
     if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
-          EXGLSysLog("Unsupported hardware buffer format");
-          AHardwareBuffer_release(hardwareBuffer);
-          return 0u; // Return 0 to indicate an error
+        EXGLSysLog("Unsupported hardware buffer format");
+        AHardwareBuffer_release(hardwareBuffer);
+        return 0; // Return 0 to indicate an error
     }
+
+    int width = desc.width;
+    int height = desc.height;
     void *bufferData = nullptr;
     int32_t lock_result = AHardwareBuffer_lock(
         hardwareBuffer,
@@ -158,80 +131,64 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     if (lock_result != 0 || !bufferData) {
         EXGLSysLog("Failed to lock AHardwareBuffer");
         AHardwareBuffer_release(hardwareBuffer);
-        return 0u; // Return 0 to indicate an error
+        return 0; // Return 0 to indicate an error
     }
     EXGLSysLog("Locked Hardware Buffer");
 
-    // Example OpenGL operation using the texture ID
-    //static int TEXTURE_2D_CONST = 3553; // GL_TEXTURE_2D constant
+    // Generate and map the OpenGL texture to the EXGL object ID
     addToNextBatch([=] {
-        // Lock the hardware buffer
-      glBindTexture(GL_TEXTURE_2D, lookupObject(texture));  
+        assert(objects.find(exglObjId) == objects.end());
+
+        // Generate the OpenGL texture
+        GLuint buffer;
+        glGenTextures(1, &buffer);
+        mapObject(exglObjId, buffer);
+
+        glBindTexture(GL_TEXTURE_2D, buffer);
+
+        // Set texture parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            width,
+            height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            bufferData
+        );
+
+        EXGLSysLog("Texture populated with solid yellow color");
+        // Unlock the hardware buffer
+        AHardwareBuffer_unlock(hardwareBuffer, nullptr);
+
+        // Release the hardware buffer
+        AHardwareBuffer_release(hardwareBuffer);
     });
-    this->flush();
 
-   if (desc.stride != desc.width) {
-            // Handle non-tightly packed data
-            size_t dataSize = desc.width * desc.height * 4; // 4 bytes per pixel (RGBA)
-            std::vector<uint8_t> tightBuffer(dataSize);
+    // Create WebGL object
+    jsi::Value id = jsi::Value(static_cast<double>(exglObjId));
 
-            uint8_t* src = static_cast<uint8_t*>(bufferData);
-            uint8_t* dst = tightBuffer.data();
-            EXGLSysLog("Diff than width");
+    // Create a new WebGLTexture object in JavaScript
+    jsi::Object webglObject = runtime.global()
+        .getProperty(runtime, jsi::PropNameID::forUtf8(runtime, getConstructorName(EXWebGLClass::WebGLTexture)))
+        .asObject(runtime)
+        .asFunction(runtime)
+        .callAsConstructor(runtime, {})
+        .asObject(runtime);
 
-            for (uint32_t y = 0; y < desc.height; y++) {
-                memcpy(dst, src, desc.width * 4);
-                src += desc.stride * 4;
-                dst += desc.width * 4;
-            }
+    webglObject.setProperty(runtime, "id", id);
 
-            addToNextBatch([=] {
-                // Lock the hardware buffer
-              glTexImage2D(
-                        GL_TEXTURE_2D,
-                        0,
-                        GL_RGBA,
-                        desc.width,
-                        desc.height,
-                        0,
-                        GL_RGBA,
-                        GL_UNSIGNED_BYTE,
-                        tightBuffer.data()
-                    );
-              });
-        } else {
-            EXGLSysLog("Data is tightly packed");
-
-            // Data is tightly packed, use bufferData directly
-            addToNextBatch([=] {
-                // Lock the hardware buffer
-              glTexImage2D(
-                GL_TEXTURE_2D,
-                0,
-                GL_RGBA,
-                desc.width,
-                desc.height,
-                0,
-                GL_RGBA,
-                GL_UNSIGNED_BYTE,
-                bufferData
-            );
-            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-          });
-        }
-    this->flush();
-
-    // Unlock the hardware buffer
-    AHardwareBuffer_unlock(hardwareBuffer, nullptr);
-
-    // Release the hardware buffer
-    AHardwareBuffer_release(hardwareBuffer);
-   
-    // Return the texture ID or any other relevant result
-    return static_cast<int>(texture);
+    EXGLSysLog("Done Upload Texture Func.");
+    return static_cast<int>(exglObjId);
 }
+
 
 void EXGLContext::maybeResolveWorkletContext(jsi::Runtime &runtime) {
   jsi::Value workletRuntimeValue = runtime.global().getProperty(runtime, "_WORKLET_RUNTIME");
@@ -324,11 +281,15 @@ void EXGLContext::destroyObject(EXGLObjectId exglObjId) noexcept {
 }
 
 void EXGLContext::mapObject(EXGLObjectId exglObjId, GLuint glObj) noexcept {
+  EXGLSysLog("Map OBJ is called for obj id %d",exglObjId);
   objects[exglObjId] = glObj;
 }
 
 GLuint EXGLContext::lookupObject(EXGLObjectId exglObjId) noexcept {
   auto iter = objects.find(exglObjId);
+  if(iter == objects.end()){
+      EXGLSysLog("lookup for exglObjId %d failed.", exglObjId);
+  }
   return iter == objects.end() ? 0 : iter->second;
 }
 
