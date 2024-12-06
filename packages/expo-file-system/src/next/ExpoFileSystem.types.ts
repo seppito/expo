@@ -1,3 +1,16 @@
+type CreateOptions = {
+  /**
+   * Whether to create intermediate directories if they do not exist.
+   * @default false
+   */
+  intermediates?: boolean;
+  /**
+   * Whether to overwrite the file or directory if it exists.
+   * @default false
+   */
+  overwrite?: boolean;
+};
+
 export declare class Directory {
   /**
    * Creates an instance of a directory.
@@ -38,7 +51,7 @@ export declare class Directory {
    *
    * @throws Error if the containing folder doesn't exist, the application has no read access to it or the directory (or a file with the same path) already exists.
    */
-  create(): void;
+  create(options?: CreateOptions): void;
 
   /**
    * Copies a directory.
@@ -98,10 +111,16 @@ export declare class File {
   base64(): string;
 
   /**
+   * Retrieves byte content of the entire file.
+   * @returns The contents of the file as a Uint8Array.
+   */
+  bytes(): Uint8Array;
+
+  /**
    * Writes content to the file.
    * @param content - The content to write into the file.
    */
-  write(content: string): void;
+  write(content: string | Uint8Array): void;
 
   /**
    * Deletes a file.
@@ -121,7 +140,7 @@ export declare class File {
    *
    * @throws Error if the containing folder doesn't exist, the application has no read access to it or the file (or directory with the same path) already exists.
    */
-  create(): void;
+  create(options?: CreateOptions): void;
 
   /**
    * Copies a file.
@@ -160,6 +179,11 @@ export declare class File {
    * An md5 hash of the file. Null if the file does not exist or it cannot be read.
    */
   md5: string | null;
+
+  /**
+   * A mime type of the file. Null if the file does not exist or it cannot be read.
+   */
+  type: string | null;
 }
 
 export declare class FileHandle {
