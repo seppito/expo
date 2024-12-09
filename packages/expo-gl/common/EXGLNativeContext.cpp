@@ -26,81 +26,7 @@ void EXGLContext::prepareContext(jsi::Runtime &runtime, std::function<void(void)
   }
 }
 
-/**
- * Fills an AHardwareBuffer with a checkerboard pattern.
- * 
- * @param nativeBuffer Pointer to the AHardwareBuffer to be filled.
- * @param color1 The first color in the checkerboard (RGBA format, e.g., 0xFF0000FF for solid red).
- * @param color2 The second color in the checkerboard (RGBA format, e.g., 0xFFFFFFFF for white).
- * @param checkerSize The size of each square in the checkerboard pattern (in pixels).
- * @return True if successful, false otherwise.
- */
-bool EXGLContext::FillAHardwareBufferWithCheckerboard(
-    AHardwareBuffer* nativeBuffer, 
-    uint32_t color1, 
-    uint32_t color2, 
-    uint32_t checkerSize
-) {
-    if (!nativeBuffer) {
-        EXGLSysLog("FillAHardwareBufferWithCheckerboard: Null buffer");
-        return false;
-    }
-
-    // Describe the buffer
-    AHardwareBuffer_Desc desc;
-    AHardwareBuffer_describe(nativeBuffer, &desc);
-
-    EXGLSysLog("Hardware buffer dimensions: width=%d, height=%d, stride=%d", desc.width, desc.height, desc.stride);
-
-    // Ensure the buffer format is supported
-    if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
-        EXGLSysLog("Unsupported hardware buffer format: %d", desc.format);
-        return false;
-    }
-
-    // Lock the buffer for writing
-    void* bufferData = nullptr;
-    int lockResult = AHardwareBuffer_lock(
-        nativeBuffer,
-        AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN,
-        -1, // No fence
-        nullptr, // Lock the entire buffer
-        &bufferData
-    );
-
-    if (lockResult != 0 || !bufferData) {
-        return false;
-    }
-
-    // Fill the buffer with a checkerboard pattern
-    uint32_t* pixels = static_cast<uint32_t*>(bufferData);
-    for (uint32_t y = 0; y < desc.height; ++y) {
-        for (uint32_t x = 0; x < desc.width; ++x) {
-            uint32_t checkerX = x / checkerSize;
-            uint32_t checkerY = y / checkerSize;
-            bool isColor1 = (checkerX + checkerY) % 2 == 0;
-
-            pixels[y * desc.stride + x] = isColor1 ? color1 : color2;
-        }
-    }
-
-    AHardwareBuffer_unlock(nativeBuffer, nullptr);
-    EXGLSysLog("Checkerboard pattern written to hardware buffer");
-
-    return true;
-}
-
 int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
-    uint32_t red = 0xFF0000FF;   // Solid red (RGBA)
-    uint32_t white = 0xFFFFFFFF; // Solid white (RGBA)
-    uint32_t squareSize = 32;     // 8x8 pixels per square
-
-    // Fill the hardware buffer with a checkerboard pattern
-    if (FillAHardwareBufferWithCheckerboard(hardwareBuffer, red, white, squareSize)) {
-        EXGLSysLog("Success, colored");
-    } else {
-        EXGLSysLog("Failed to fill hardware buffer");
-    }
 
     // Create a new EXGL object ID
     auto exglObjId = createObject();
@@ -114,7 +40,7 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
         EXGLSysLog("Unsupported hardware buffer format");
         AHardwareBuffer_release(hardwareBuffer);
-        return 0; // Return 0 to indicate an error
+        return 0;
     }
 
     int width = desc.width;

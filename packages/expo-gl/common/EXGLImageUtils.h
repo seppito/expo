@@ -3,6 +3,8 @@
 #ifdef __ANDROID__
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
+#include <android/hardware_buffer_jni.h>
+
 #endif
 #ifdef __APPLE__
 #include <OpenGLES/ES3/gl.h>
@@ -24,5 +26,9 @@ std::shared_ptr<uint8_t> loadImage(
     int *fileWidth,
     int *fileHeight,
     int *fileComp);
+
+bool FillAHardwareBufferWithCheckerboard(AHardwareBuffer* nativeBuffer, uint32_t color1, uint32_t color2, 
+    uint32_t checkerSize);
+
 } // namespace gl_cpp
 } // namespace expo

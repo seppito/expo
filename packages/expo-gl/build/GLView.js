@@ -34,8 +34,21 @@ export class GLView extends React.Component {
         const { exglCtxId } = await ExponentGLObjectManager.createContextAsync();
         return getGl(exglCtxId);
     }
-    static async createTestHardwareBuffer(exglCtxId) {
-        return await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId);
+    static async createTextureFromTexturePointer(exglCtxId, pointer) {
+        const pointerBigInt = BigInt(pointer) & BigInt('0xFFFFFFFFFFFFFFFF'); // Mask lower 64 bits
+        console.log('Create Texture : Pointer as BigInt:', pointerBigInt);
+        console.log('Create Texture : Pointer as hexadecimal:', pointerBigInt.toString(16));
+        const pointerString = pointerBigInt.toString(16); // Convert to hex string
+        console.log('Pointer as hex string (to send to Kotlin):', pointerString);
+        return await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId, pointerString);
+    }
+    static async createTestHardwareBuffer() {
+        const { pointer } = await ExponentGLObjectManager.createAHardwareBufferAsync();
+        // Convert to BigInt and mask lower 64 bits (to avoid negative pointers), this to be compilant with react-native-camera return values.
+        const pointerBigInt = BigInt(pointer) & BigInt('0xFFFFFFFFFFFFFFFF');
+        console.log('Create HB : Pointer as BigInt:', pointerBigInt);
+        console.log('Create HB : Pointer as hexadecimal:', pointerBigInt.toString(16));
+        return pointerBigInt;
     }
     /**
      * Destroys given context.

@@ -15,6 +15,7 @@ import android.graphics.*
 import android.hardware.HardwareBuffer
 import android.util.Log
 import java.nio.ByteBuffer
+import expo.modules.gl.cpp.EXGL.*
 
 private class InvalidCameraViewException :
   CodedException("Provided view tag doesn't point to a valid instance of the camera view")
@@ -86,15 +87,32 @@ class GLObjectManagerModule : Module() {
       true
     }
 
-    AsyncFunction("uploadAHardwareBufferAsync") { exglCtxId: Int, promise: Promise ->
+    AsyncFunction("uploadAHardwareBufferAsync") { exglCtxId: Int, pointerString: String, promise: Promise ->
       val context = mGLContextMap[exglCtxId]
         ?: throw InvalidGLContextException()
-      val exglObjId = context.push_texture_from_native_buffer()
-      //val results = Bundle()
+      Log.i("GLObjectManagerModule","Calling push texture from native buffer")
+      // Convert the hex string back to a ULong, then to a signed jlong
+      val pointer = pointerString.toULong(16).toLong()
       
-      
-      //results.putInt("exglObjId", exglObjId)
+      Log.i("GLObjectManagerModule", "Reconstructed Pointer from string: $pointer (hex: 0x" + pointer.toULong().toString(16) + ")")
+      val exglObjId = context.push_texture_from_native_buffer(pointer)
       promise.resolve(exglObjId)
+    }
+
+    AsyncFunction("createAHardwareBufferAsync") {promise: Promise ->
+      // Call the JNI method to create a hardware buffer
+      val pointer = EXGLContextCreateTestHardwareBuffer()
+      
+      // Cast to unsigned to avoid negative numbers
+      val unsignedPointer = pointer.toULong() // Cast to unsigned 64-bit long
+      val pointerHex = unsignedPointer.toString(16) // Convert to hex string
+
+      Log.i("GLObjectManagerModule","Pointer as unsigned (ULong): $unsignedPointer .")
+      Log.i("GLObjectManagerModule","Pointer in hexadecimal: 0x$pointerHex")
+
+      val response = Bundle()
+      response.putLong("pointer", pointer)
+      promise.resolve(response)
     }
   }
 

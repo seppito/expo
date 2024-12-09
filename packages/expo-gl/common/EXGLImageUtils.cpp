@@ -1,7 +1,13 @@
 #include "EXGLImageUtils.h"
-
+#include "EXPlatformUtils.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+#ifdef __ANDROID__
+#include <android/hardware_buffer_jni.h>
+#include <android/log.h>
+
+#endif
 
 namespace jsi = facebook::jsi;
 
@@ -134,6 +140,61 @@ std::shared_ptr<uint8_t> loadImage(
         [](void *data) { stbi_image_free(data); });
   }
   return std::shared_ptr<uint8_t>(nullptr);
+}
+
+bool FillAHardwareBufferWithCheckerboard(
+    AHardwareBuffer* nativeBuffer, 
+    uint32_t color1, 
+    uint32_t color2, 
+    uint32_t checkerSize
+) {
+    if (!nativeBuffer) {
+        EXGLSysLog("FillAHardwareBufferWithCheckerboard: Null buffer");
+        return false;
+    }
+
+    // Describe the buffer
+    AHardwareBuffer_Desc desc;
+    AHardwareBuffer_describe(nativeBuffer, &desc);
+
+    EXGLSysLog("Hardware buffer dimensions: width=%d, height=%d, stride=%d", desc.width, desc.height, desc.stride);
+
+    // Ensure the buffer format is supported
+    if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
+        EXGLSysLog("Unsupported hardware buffer format: %d", desc.format);
+        return false;
+    }
+
+    // Lock the buffer for writing
+    void* bufferData = nullptr;
+    int lockResult = AHardwareBuffer_lock(
+        nativeBuffer,
+        AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN,
+        -1, // No fence
+        nullptr, // Lock the entire buffer
+        &bufferData
+    );
+
+    if (lockResult != 0 || !bufferData) {
+        return false;
+    }
+
+    // Fill the buffer with a checkerboard pattern
+    uint32_t* pixels = static_cast<uint32_t*>(bufferData);
+    for (uint32_t y = 0; y < desc.height; ++y) {
+        for (uint32_t x = 0; x < desc.width; ++x) {
+            uint32_t checkerX = x / checkerSize;
+            uint32_t checkerY = y / checkerSize;
+            bool isColor1 = (checkerX + checkerY) % 2 == 0;
+
+            pixels[y * desc.stride + x] = isColor1 ? color1 : color2;
+        }
+    }
+
+    AHardwareBuffer_unlock(nativeBuffer, nullptr);
+    EXGLSysLog("Checkerboard pattern written to hardware buffer");
+
+    return true;
 }
 } // namespace gl_cpp
 } // namespace expo

@@ -346,7 +346,6 @@ public class GLContext {
     }
   }
 
-
   // All actual GL calls are made on this thread
 
   private class GLThread extends Thread {
@@ -471,12 +470,9 @@ public class GLContext {
     return (Integer) value;
   }
 
-  public int  push_texture_from_native_buffer(){
-    currentHB = createTestHardwareBuffer();
-    //long bufferPointer = HardwareBuffer.getNativeHardwareBuffer(testHB);
-    Log.i("GLContext", "We did It! Width = "+ currentHB.getWidth());
+  public int  push_texture_from_native_buffer(long native_buffer_address){
     long jsContextRef = mJavaScriptContextProvider.getJavaScriptContextRef();
-    int objVal = EXGLContextUploadTexture(jsContextRef,mEXGLCtxId,currentHB);
+    int objVal = EXGLContextUploadTexture(jsContextRef,mEXGLCtxId,native_buffer_address);
     Log.i("GLContext", "objVal "+ objVal);
     return objVal;
   }
@@ -505,8 +501,4 @@ public class GLContext {
 
           return hardwareBuffer;
       }
-//@SuppressWarnings("JavaJniMissingFunction")
-//private native HybridData initHybrid();
-//public native void nativeProcessHardwareBuffer(HardwareBuffer hardwareBuffer);
-
 }

@@ -49,7 +49,10 @@ void EXGLContextDrawEnded(EXGLContextId exglCtxId);
 // reused.
 void EXGLContextDestroy(EXGLContextId exglCtxId);
 
-EXGLObjectId EXGLContextUploadTexture(void *runtime,EXGLContextId exglCtxId, AHardwareBuffer *hardwareBuffer);
+// Remember to implement an ifdef and include this for ios.
+EXGLObjectId EXGLContextUploadTexture(void *runtime,EXGLContextId exglCtxId, AHardwareBuffer* hardwareBuffer);
+// Remember to implement an ifdef and include this for ios.
+//EXGLObjectId EXGLContextUploadTexture(void *runtime,EXGLContextId exglCtxId, long hardwareBuffer);
 
 // [GL thread] Perform one frame's worth of queued up GL work
 void EXGLContextFlush(EXGLContextId exglCtxId);

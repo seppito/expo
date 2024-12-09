@@ -58,15 +58,6 @@ class EXGLContext {
   void maybeResolveWorkletContext(jsi::Runtime &runtime);
   void prepareWorkletContext();
 
-/**
- * Fills an AHardwareBuffer with a specific color.
- * 
- * 
- * @param nativeBuffer Pointer to the AHardwareBuffer to be filled.
- * @param color The color to fill (RGBA format, e.g., 0xFF0000FF for solid red).
- * @return True if successful, false otherwise.
- */
-  bool FillAHardwareBufferWithCheckerboard(AHardwareBuffer* nativeBuffer, uint32_t color1, uint32_t color2, uint32_t checkerSize) ;
 
   int uploadTextureToOpenGL(jsi::Runtime &runtime,AHardwareBuffer *hardwareBuffer);
   // --- Queue handling --------------------------------------------------------

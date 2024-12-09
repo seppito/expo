@@ -12,23 +12,16 @@ const CustomTestScreen = () => {
         console.error(`OpenGL error after ${step}:`, error);
       }
     }
-    // Create hardware buffer texture
-    let hardwareBufferTextureId;
-    try {
-      hardwareBufferTextureId = await GLView.createTestHardwareBuffer(gl.contextId);
-      if (!hardwareBufferTextureId) {
-        console.error("Failed to create hardware buffer texture");
-        return;
-      }
-      console.log("Hardware buffer texture created successfully, ID:", hardwareBufferTextureId);
-    } catch (error) {
-      console.error("Error creating hardware buffer texture:", error);
-      return;
-    }
-    
+    const pointer : bigint = await GLView.createTestHardwareBuffer();
+
+    console.log("Hardware Buffer Pointer Custom Screen Reached "+ pointer)
+
+    const hbtextureId = await GLView.createTextureFromTexturePointer(gl.contextId,pointer);
+
+    console.log("Texture ID is  "+ hbtextureId)
     // Create a texture and fill it with a color
     const texture = gl.createTexture();
-    const hbTexture = { id: hardwareBufferTextureId } as WebGLTexture
+    const hbTexture = { id: hbtextureId } as WebGLTexture
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -75,7 +68,7 @@ const CustomTestScreen = () => {
       gl.FRAMEBUFFER,
       gl.COLOR_ATTACHMENT0,
       gl.TEXTURE_2D,
-      { id: hardwareBufferTextureId },
+      texture,
       0
     );
 

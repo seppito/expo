@@ -8,7 +8,7 @@
 #include "EXGLNativeApi.h"
 #include "EXPlatformUtils.h"
 #include <stdio.h>
-
+#include "EXGLImageUtils.h"
 extern "C" {
 
 // JNIEnv is valid only inside the same thread that it was passed from
@@ -97,38 +97,82 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
     jclass clazz,
     jlong jsiPtr,
     jint exglCtxId,
-    jobject hardwareBuffer) {
-
-    if (hardwareBuffer == nullptr) {
-        __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "HardwareBuffer is null");
+    jlong hardwareBuffer) 
+{
+    if (hardwareBuffer == 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "HardwareBuffer pointer is null");
         return 0;
     }
 
-    // Convert jobject to AHardwareBuffer*
-    AHardwareBuffer *nativeBuffer = AHardwareBuffer_fromHardwareBuffer(env, hardwareBuffer);
+    __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Jlong Pointer: %lld", hardwareBuffer);
+
+    // Cast jlong to AHardwareBuffer*
+    AHardwareBuffer *nativeBuffer = reinterpret_cast<AHardwareBuffer *>(hardwareBuffer);
+    __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Post cast pointer: %p", nativeBuffer);
+
     if (nativeBuffer == nullptr) {
-        __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Failed to convert HardwareBuffer to native AHardwareBuffer");
+        __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Failed to cast jlong to AHardwareBuffer*");
         return 0;
     }
 
-    // Describe the HardwareBuffer to get its dimensions
     AHardwareBuffer_Desc desc;
     AHardwareBuffer_describe(nativeBuffer, &desc);
-
-    // Log the dimensions and other details of the HardwareBuffer
     __android_log_print(ANDROID_LOG_INFO, "EXGLJni",
-                        "HardwareBuffer details: width=%u, height=%u, layers=%u, format=%u, usage=0x%llx",
-                        desc.width, desc.height, desc.layers, desc.format, (unsigned long long)desc.usage);
+                        "HardwareBuffer details: width=%u, height=%u, layers=%u, format=%u",
+                        desc.width, desc.height, desc.layers, desc.format);
 
-    // Pass the native buffer to the EXGLContextUploadTexture function
-    auto exlObj = EXGLContextUploadTexture((void*) jsiPtr,exglCtxId, nativeBuffer);
-
-    // Release the native buffer after use
-    AHardwareBuffer_release(nativeBuffer);
-    __android_log_print(ANDROID_LOG_INFO, "EXGLJni", "Uploaded texture %d and released HardwareBuffer.",exlObj);
+    int exlObj = EXGLContextUploadTexture(reinterpret_cast<void *>(jsiPtr), exglCtxId, nativeBuffer);
+    __android_log_print(ANDROID_LOG_INFO, "EXGLJni", "Uploaded texture %d", exlObj);
     return exlObj;
 }
+
+JNIEXPORT jlong JNICALL
+Java_expo_modules_gl_cpp_EXGL_EXGLContextCreateTestHardwareBuffer(
+    JNIEnv *env,
+    jclass clazz) 
+{
+    // Create the AHardwareBuffer description
+    AHardwareBuffer_Desc desc = {};
+    desc.width = 256; 
+    desc.height = 256; 
+    desc.layers = 1; 
+    desc.format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM; 
+    desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE | AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY; 
+
+    // Create the hardware buffer
+    AHardwareBuffer *hardwareBuffer = nullptr;
+    int result = AHardwareBuffer_allocate(&desc, &hardwareBuffer);
+    
+    if (result != 0 || hardwareBuffer == nullptr) {
+        __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", 
+                            "Failed to create AHardwareBuffer: %d", result);
+        return 0; // Return 0 to indicate failure
+    }
+
+    __android_log_print(ANDROID_LOG_INFO, "EXGLJni", "Successfully created AHardwareBuffer");
+    uint32_t red = 0xFF0000FF;   // Solid red (RGBA)
+    uint32_t white = 0xFFFFFFFF; // Solid white (RGBA)
+    uint32_t squareSize = 32;     // 8x8 pixels per square
+    
+    //Todo: Check if this hb gets deleted at the end to avoid memory leaks.
+    AHardwareBuffer_acquire(hardwareBuffer); // Add another reference (ref count +1)
+
+    // Fill the hardware buffer with a checkerboard pattern
+    if (expo::gl_cpp::FillAHardwareBufferWithCheckerboard(hardwareBuffer, red, white, squareSize)) {
+        EXGLSysLog("Success, colored");
+    } else {
+        EXGLSysLog("Failed to fill hardware buffer");
+    }
+      uintptr_t pointer = reinterpret_cast<uintptr_t>(hardwareBuffer);
+    __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Pointer to be sent: %p", hardwareBuffer);
+    __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Pointer (64-bit unsigned): %llu", (unsigned long long) pointer);
+    
+    // Return the pointer as a jlong
+    return (jlong) pointer; 
+}
+
 #else
+
 JNIEXPORT void JNICALL
 Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
     JNIEnv *env,
