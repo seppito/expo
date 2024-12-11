@@ -37,8 +37,8 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     AHardwareBuffer_Desc desc = {};
     AHardwareBuffer_describe(hardwareBuffer, &desc);
 
-    if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {
-        EXGLSysLog("Unsupported hardware buffer format");
+    if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM && desc.format != AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420) {
+        EXGLSysLog("Unsupported hardware buffer format %d" , desc.format);
         AHardwareBuffer_release(hardwareBuffer);
         return 0;
     }
@@ -60,7 +60,10 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
         return 0; // Return 0 to indicate an error
     }
     EXGLSysLog("Locked Hardware Buffer");
-
+    if ( desc.format == AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420){
+        EXGLSysLog("AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420");
+        return 0;
+    }
     // Generate and map the OpenGL texture to the EXGL object ID
     addToNextBatch([=] {
         assert(objects.find(exglObjId) == objects.end());
@@ -89,8 +92,6 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
             GL_UNSIGNED_BYTE,
             bufferData
         );
-
-        EXGLSysLog("Texture populated with solid yellow color");
         // Unlock the hardware buffer
         AHardwareBuffer_unlock(hardwareBuffer, nullptr);
 

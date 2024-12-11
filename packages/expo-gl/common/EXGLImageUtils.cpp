@@ -142,6 +142,7 @@ std::shared_ptr<uint8_t> loadImage(
   return std::shared_ptr<uint8_t>(nullptr);
 }
 
+
 bool FillAHardwareBufferWithCheckerboard(
     AHardwareBuffer* nativeBuffer, 
     uint32_t color1, 

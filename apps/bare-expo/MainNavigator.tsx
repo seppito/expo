@@ -8,6 +8,8 @@ import React from 'react';
 import { ToastAndroid, Platform } from 'react-native';
 import TestSuite from 'test-suite/AppNavigator';
 import CustomTestScreen from './CustomTestScreen'; // Import the new custom test screen
+import { PermissionsPage } from 'screens/PermissionsPage';
+import { CameraPage } from 'screens/CameraView';
 
 type NavigationRouteConfigMap = React.ReactElement;
 
@@ -36,6 +38,8 @@ export function optionalRequire(requirer: () => { default: React.ComponentType }
 const routes: RoutesConfig = {
   'test-suite': TestSuite,
   'custom-test': CustomTestScreen, // Add the new screen route
+  'permissions-page': PermissionsPage,
+  'camera-page': CameraPage
 };
 
 // We'd like to get rid of `native-component-list` being a part of the final bundle.
