@@ -99,9 +99,11 @@ class GLObjectManagerModule : Module() {
       promise.resolve(exglObjId)
     }
 
-    AsyncFunction("createAHardwareBufferAsync") {promise: Promise ->
+    AsyncFunction("createAHardwareBufferAsync") {option: Int,promise: Promise ->
       // Call the JNI method to create a hardware buffer
-      val pointer = EXGLContextCreateTestHardwareBuffer()
+      Log.i("GLObjectManagerModule"," Pre Option : $option .")
+
+      val pointer = EXGLContextCreateTestHardwareBuffer(option)
       
       // Cast to unsigned to avoid negative numbers
       val unsignedPointer = pointer.toULong() // Cast to unsigned 64-bit long

@@ -42,8 +42,8 @@ export class GLView extends React.Component {
         console.log('Pointer as hex string (to send to Kotlin):', pointerString);
         return await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId, pointerString);
     }
-    static async createTestHardwareBuffer() {
-        const { pointer } = await ExponentGLObjectManager.createAHardwareBufferAsync();
+    static async createTestHardwareBuffer(option) {
+        const { pointer } = await ExponentGLObjectManager.createAHardwareBufferAsync(option);
         // Convert to BigInt and mask lower 64 bits (to avoid negative pointers), this to be compilant with react-native-camera return values.
         const pointerBigInt = BigInt(pointer) & BigInt('0xFFFFFFFFFFFFFFFF');
         console.log('Create HB : Pointer as BigInt:', pointerBigInt);

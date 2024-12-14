@@ -18,7 +18,7 @@ export function CameraPage({ renderCallback }: any): React.ReactElement {
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
 
-    runAtTargetFps(15, () => {
+    runAtTargetFps(60, () => {
       'worklet';
       
       renderCallback(frame);
@@ -41,7 +41,6 @@ export function CameraPage({ renderCallback }: any): React.ReactElement {
         device={device}
         isActive={true}
         frameProcessor={frameProcessor}
-        pixelFormat={'rgb'}
         resizeMode={"contain"}
         />
     </View>

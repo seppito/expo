@@ -141,7 +141,12 @@ class EXGLContext {
 
   // OpenGLES state
   bool needsRedraw = false;
+  
   GLint defaultFramebuffer = 0;
+
+  // PreCompiled Program
+  //GLint defaultProgram = 0;
+
   bool unpackFLipY = false;
 };
 

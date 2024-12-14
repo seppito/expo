@@ -27,21 +27,25 @@ void EXGLContext::prepareContext(jsi::Runtime &runtime, std::function<void(void)
 }
 
 int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
+    EXGLSysLog("Reached Upload TExture to OpenGL");
 
     // Create a new EXGL object ID
     auto exglObjId = createObject();
 
     // Acquire the hardware buffer to increment its reference count
     AHardwareBuffer_acquire(hardwareBuffer);
+    EXGLSysLog("After adquire ");
 
     AHardwareBuffer_Desc desc = {};
     AHardwareBuffer_describe(hardwareBuffer, &desc);
+    EXGLSysLog("After desc ");
 
     if (desc.format != AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM && desc.format != AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420) {
         EXGLSysLog("Unsupported hardware buffer format %d" , desc.format);
         AHardwareBuffer_release(hardwareBuffer);
         return 0;
     }
+    EXGLSysLog("After Desc if");
 
     int width = desc.width;
     int height = desc.height;
@@ -60,12 +64,171 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
         return 0; // Return 0 to indicate an error
     }
     EXGLSysLog("Locked Hardware Buffer");
+
     if ( desc.format == AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420){
         EXGLSysLog("AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420");
-        return 0;
-    }
-    // Generate and map the OpenGL texture to the EXGL object ID
-    addToNextBatch([=] {
+        int yPlaneSize = width * height;
+        int uvPlaneSize = (width / 2) * (height / 2); // U and V planes are subsample
+
+        // Extract the Y, U, V data from the buffer
+        uint8_t* yPlane = (uint8_t*)bufferData;
+        uint8_t* uPlane = yPlane + yPlaneSize;
+        uint8_t* vPlane = uPlane + uvPlaneSize;
+
+
+        addToNextBatch([=] {
+          assert(objects.find(exglObjId) == objects.end());
+            const char *vertexShaderSource = R"(
+                precision mediump float; // Required for OpenGL ES
+                attribute vec4 a_position;
+                attribute vec2 a_texCoord;
+                varying vec2 vTexCoord;
+                void main() {
+                    gl_Position = a_position;
+                    vTexCoord = a_texCoord;
+                }
+            )";
+
+            // Fragment Shader source code (YUV to RGB)
+            const char *fragmentShaderSource = R"(
+                precision mediump float;
+                uniform sampler2D s_texture_y;
+                uniform sampler2D s_texture_u;
+                uniform sampler2D s_texture_v;
+                uniform float qt_Opacity;
+                varying vec2 vTexCoord;
+
+                void main() {
+                    float Y = texture2D(s_texture_y, vTexCoord).r;
+                    float U = texture2D(s_texture_u, vTexCoord * 0.5).r - 0.5;
+                    float V = texture2D(s_texture_v, vTexCoord * 0.5).r - 0.5;
+                    vec3 color = vec3(Y, U, V);
+                    mat3 colorMatrix = mat3(
+                        1,   0,      1.402,
+                        1,  -0.344, -0.714,
+                        1,   1.772,  0
+                    );
+                    vec3 rgb = color * colorMatrix;
+                    gl_FragColor = vec4(rgb, 1.0) * qt_Opacity;
+                }
+            )";
+        
+           // Compile vertex shader
+          GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+          glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
+          glCompileShader(vertexShader);
+          
+          // Check for compile errors in vertex shader
+          //GLint success;
+          //glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+
+          /*
+          if (!success) {
+              char infoLog[512];
+              glGetShaderInfoLog(vertexShader, 512, nullptr, infoLog);
+              EXGLSysLog("Vertex shader compilation failed: %s", infoLog);
+              return 0;
+          }
+          
+          */
+          // Compile fragment shader
+          GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+          glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
+          glCompileShader(fragmentShader);
+          
+          // Link shaders into a shader program
+          GLuint defaultProgram = glCreateProgram();
+          glAttachShader(defaultProgram, vertexShader);
+          glAttachShader(defaultProgram, fragmentShader);
+          glLinkProgram(defaultProgram);
+
+          // Delete shaders (they are no longer needed after linking)
+          glDeleteShader(vertexShader);
+          glDeleteShader(fragmentShader);
+          EXGLSysLog("Defult program is done executing.");
+          
+          // Check for link errors in shader program
+          // Delete shaders (they are no longer needed after linking)
+          glDeleteShader(vertexShader);
+          glDeleteShader(fragmentShader);
+
+          GLuint textures[3];
+          
+          glGenTextures(3, textures);
+
+          // Upload Y plane
+          glBindTexture(GL_TEXTURE_2D, textures[0]);
+          glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, yPlane);
+
+          // Upload U plane
+          glBindTexture(GL_TEXTURE_2D, textures[1]);
+          glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, uPlane);
+
+          // Upload V plane
+          glBindTexture(GL_TEXTURE_2D, textures[2]);
+          glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, vPlane);
+          
+          // Unlock the hardware buffer
+          AHardwareBuffer_unlock(hardwareBuffer, nullptr);
+          
+          // Release the hardware buffer
+          AHardwareBuffer_release(hardwareBuffer);
+
+          // start of shader section :
+          EXGLSysLog("Pre Frame Buffer");
+
+          GLuint framebuffer, rgbTexture;
+          glGenFramebuffers(1, &framebuffer);
+          glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+          // Create the final RGB texture to store the output
+          glGenTextures(1, &rgbTexture);
+          glBindTexture(GL_TEXTURE_2D, rgbTexture);
+          glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+          glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rgbTexture, 0);
+
+          // Use the shader program
+          glUseProgram(defaultProgram);
+// start of shader section :
+          EXGLSysLog("use the default program.");
+          // Set shader uniforms
+          glActiveTexture(GL_TEXTURE0);
+          glBindTexture(GL_TEXTURE_2D, textures[0]); // Y plane
+          glUniform1i(glGetUniformLocation(defaultProgram, "s_texture_y"), 0);
+
+          glActiveTexture(GL_TEXTURE1);
+          glBindTexture(GL_TEXTURE_2D, textures[1]); // U plane
+          glUniform1i(glGetUniformLocation(defaultProgram, "s_texture_u"), 1);
+
+          glActiveTexture(GL_TEXTURE2);
+          glBindTexture(GL_TEXTURE_2D, textures[2]); // V plane
+          glUniform1i(glGetUniformLocation(defaultProgram, "s_texture_v"), 2);
+
+          // Set opacity
+          glUniform1f(glGetUniformLocation(defaultProgram, "qt_Opacity"), 1.0f);
+
+          // Draw the quad
+          glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+          glViewport(0, 0, width, height);
+
+          // Draw a quad to trigger the shader for each pixel
+          glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+          EXGLSysLog("Default Frame Buffer is %d",defaultFramebuffer);
+
+          glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebuffer);
+          glDeleteFramebuffers(1, &framebuffer);
+
+          // Clean up textures
+          glDeleteTextures(3, textures);
+          
+          // Map the OpenGL texture to the EXGL object
+          mapObject(exglObjId, rgbTexture);
+          EXGLSysLog("Reached the end of the GL Call in the context " );
+
+        });
+        
+    } else {
+      addToNextBatch([=] {
         assert(objects.find(exglObjId) == objects.end());
 
         // Generate the OpenGL texture
@@ -98,7 +261,8 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
         // Release the hardware buffer
         AHardwareBuffer_release(hardwareBuffer);
     });
-
+    }
+   
     // Create WebGL object
     jsi::Value id = jsi::Value(static_cast<double>(exglObjId));
 
@@ -239,6 +403,8 @@ void EXGLContext::tryRegisterOnJSRuntimeDestroy(jsi::Runtime &runtime) {
 glesContext EXGLContext::prepareOpenGLESContext() {
   glesContext result;
   // Clear everything to initial values
+
+  
   addBlockingToNextBatch([&] {
     std::string version = reinterpret_cast<const char *>(glGetString(GL_VERSION));
     double glesVersion = strtod(version.substr(10).c_str(), 0);

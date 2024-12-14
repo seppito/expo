@@ -75,8 +75,8 @@ export class GLView extends React.Component<GLViewProps> {
     return await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId, pointerString);
   }
 
-  static async createTestHardwareBuffer(): Promise<any> {
-    const { pointer } = await ExponentGLObjectManager.createAHardwareBufferAsync();
+  static async createTestHardwareBuffer(option:number): Promise<any> {
+    const { pointer } = await ExponentGLObjectManager.createAHardwareBufferAsync(option);
 
     // Convert to BigInt and mask lower 64 bits (to avoid negative pointers), this to be compilant with react-native-camera return values.
     const pointerBigInt = BigInt(pointer) & BigInt('0xFFFFFFFFFFFFFFFF');

@@ -24,7 +24,7 @@ export declare class GLView extends React.Component<GLViewProps> {
      */
     static createContextAsync(): Promise<ExpoWebGLRenderingContext>;
     static createTextureFromTexturePointer(exglCtxId: number, pointer: bigint): Promise<any>;
-    static createTestHardwareBuffer(): Promise<any>;
+    static createTestHardwareBuffer(option: number): Promise<any>;
     /**
      * Destroys given context.
      * @param exgl WebGL context to destroy.
