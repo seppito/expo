@@ -3,11 +3,14 @@ import { View, StyleSheet } from 'react-native';
 import { GLView } from 'expo-gl';
 import { CameraPage } from 'screens/CameraView';
 import { Worklets } from 'react-native-worklets-core';
+import { Frame } from 'react-native-vision-camera';
 
 
 
 const CustomTestScreen = () => {
   const [gl, setGl] = useState(null); // Store the GL context
+  const [program, setProgram] = useState(null); // Store the GL context
+
   const vertices = new Float32Array([
     -1.0, -1.0,
     1.0, -1.0,
@@ -43,7 +46,21 @@ const fragmentShaderSource = `
   async function onContextCreate(gl) {
     console.log("GL Contexts ID:", gl.contextId);
     setGl(gl); // Store the GL context
-  
+
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertexShader, vertexShaderSource);
+    gl.compileShader(vertexShader);
+
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragmentShader, fragmentShaderSource);
+    gl.compileShader(fragmentShader);
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    setProgram(program);
+  /*
     const pointer = await GLView.createTestHardwareBuffer(0);
     if (!pointer) {
       console.error("Failed to create hardware buffer");
@@ -58,37 +75,9 @@ const fragmentShaderSource = `
     console.log("Texture Id is  = " + hbtextureId)
 
     const hbTexture = { id: hbtextureId } as WebGLTexture
-
-    const framebuffer = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-
-
-
-
-    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragmentShader, fragmentShaderSource);
-    gl.compileShader(fragmentShader);
-/*
-    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vertexShader, vertexShaderSource);
-    gl.compileShader(vertexShader);
-
-    const program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-
-    gl.deleteShader(vertexShader);
-    gl.deleteShader(fragmentShader);
-
-        const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-    //gl.useProgram(program);
-*/
     gl.flush();
     gl.endFrameEXP();
+    */
   }
   
   /**
@@ -103,9 +92,7 @@ const fragmentShaderSource = `
     }
   }
   
-
-  
-  const renderCallback =  Worklets.createRunOnJS(async (frame) => {
+  const renderCallback =  Worklets.createRunOnJS(async (frame : Frame) => {
     if (!gl) return;
     const nativeBuffer = frame.getNativeBuffer();
     const pointer = nativeBuffer.pointer;
@@ -121,6 +108,9 @@ const fragmentShaderSource = `
     console.log("Texture ID is", hbtextureId);
 
     const hbTexture = { id: hbtextureId } as WebGLTexture
+    // Validated up until here.
+    checkGLError("Create Texture from pointer status check.",gl)
+    
      // Attach texture to framebuffer for rendering
      const framebuffer = gl.createFramebuffer();
      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -131,23 +121,11 @@ const fragmentShaderSource = `
     gl.bindTexture(gl.TEXTURE_2D,hbTexture);
 
 
-
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
-    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vertexShader, vertexShaderSource);
-    gl.compileShader(vertexShader);
 
-    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragmentShader, fragmentShaderSource);
-    gl.compileShader(fragmentShader);
-
-    const program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
     gl.useProgram(program);
 
     const positionLocation = gl.getAttribLocation(program, "position");
@@ -158,15 +136,17 @@ const fragmentShaderSource = `
     gl.uniform1i(textureLocation, 0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
+    // Validated up until here.
+    checkGLError("Final State check",gl)
     gl.flush();
     gl.endFrameEXP();
+    
   });
   
   return (
     <View style={styles.container}>
       <GLView style={styles.glView} onContextCreate={onContextCreate} />
-      <CameraPage style={styles.cameraView} renderCallback={(frame)=>{'worklet'}} />
+      <CameraPage style={styles.cameraView} renderCallback={renderCallback} />
     </View>
   );
 };

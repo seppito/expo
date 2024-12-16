@@ -34,6 +34,62 @@ export class GLView extends React.Component {
         const { exglCtxId } = await ExponentGLObjectManager.createContextAsync();
         return getGl(exglCtxId);
     }
+    static vertexShaderYuvSource = `
+    precision mediump float;
+    attribute vec4 a_position;
+    attribute vec2 a_texCoord;
+    varying vec2 vTexCoord;
+    void main() {
+        gl_Position = a_position;
+        vTexCoord = a_texCoord;
+    }
+   `;
+    static fragmentShaderYuvSource = `
+    precision mediump float;
+    uniform sampler2D s_texture_y;
+    uniform sampler2D s_texture_u;
+    uniform sampler2D s_texture_v;
+    varying vec2 vTexCoord;
+
+    void main() {
+        float Y = texture2D(s_texture_y, vTexCoord).r;
+        float U = texture2D(s_texture_u, vTexCoord).r - 0.5;
+        float V = texture2D(s_texture_v, vTexCoord).r - 0.5;
+        vec3 yuv = vec3(Y, U, V);
+        mat3 colorMatrix = mat3(
+            1,  0,      1.402,
+            1, -0.344, -0.714,
+            1,  1.772,  0
+        );
+        vec3 rgb = yuv * colorMatrix;
+        gl_FragColor = vec4(rgb, 1.0);
+    }
+ `;
+    static async prepareContextForNativeCamera(exglCtxId) {
+        "This will initialize the required shaders to validate it's compilation status faster on the JS thread.";
+        function checkGLError(step, gl) {
+            const error = gl.getError();
+            if (error !== gl.NO_ERROR) {
+                console.error(`OpenGL error after ${step}:`, error);
+            }
+        }
+        const gl = await getGl(exglCtxId);
+        const vertexShaderYuv = gl.createShader(gl.VERTEX_SHADER);
+        const fragmentShaderYuv = gl.createShader(gl.FRAGMENT_SHADER);
+        if (vertexShaderYuv == null || fragmentShaderYuv == null) {
+            console.log("One of the shaders pointers is null");
+            return 0;
+        }
+        gl.shaderSource(vertexShaderYuv, GLView.vertexShaderYuvSource);
+        gl.compileShader(vertexShaderYuv);
+        checkGLError("post shader prepare context", gl);
+        gl.shaderSource(vertexShaderYuv, GLView.vertexShaderYuvSource);
+        gl.compileShader(vertexShaderYuv);
+        checkGLError("post shader prepare context 2", gl);
+        const yuvProgram = gl.createProgram();
+        console.log("Yuv program created = " + yuvProgram);
+        //
+    }
     static async createTextureFromTexturePointer(exglCtxId, pointer) {
         const pointerBigInt = BigInt(pointer) & BigInt('0xFFFFFFFFFFFFFFFF'); // Mask lower 64 bits
         console.log('Create Texture : Pointer as BigInt:', pointerBigInt);

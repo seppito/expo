@@ -109,13 +109,17 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
     // Cast jlong to AHardwareBuffer*
     AHardwareBuffer *nativeBuffer = reinterpret_cast<AHardwareBuffer *>(hardwareBuffer);
     __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Post cast pointer: %p", nativeBuffer);
-    AHardwareBuffer_acquire(nativeBuffer);
-    __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Post  adquire: %p", nativeBuffer);
+   
 
     if (nativeBuffer == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Failed to cast jlong to AHardwareBuffer*");
         return 0;
     }
+    
+    AHardwareBuffer_acquire(nativeBuffer);
+    __android_log_print(ANDROID_LOG_ERROR, "EXGLJni", "Post  adquire: %p", nativeBuffer);
+
+
 
     AHardwareBuffer_Desc desc;
     AHardwareBuffer_describe(nativeBuffer, &desc);

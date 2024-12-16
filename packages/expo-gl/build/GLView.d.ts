@@ -23,6 +23,9 @@ export declare class GLView extends React.Component<GLViewProps> {
      * @return A promise that resolves to WebGL context object. See [WebGL API](#webgl-api) for more details.
      */
     static createContextAsync(): Promise<ExpoWebGLRenderingContext>;
+    static vertexShaderYuvSource: string;
+    static fragmentShaderYuvSource: string;
+    static prepareContextForNativeCamera(exglCtxId: number): Promise<any>;
     static createTextureFromTexturePointer(exglCtxId: number, pointer: bigint): Promise<any>;
     static createTestHardwareBuffer(option: number): Promise<any>;
     /**

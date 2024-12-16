@@ -18,7 +18,7 @@ export function CameraPage({ renderCallback }: any): React.ReactElement {
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
 
-    runAtTargetFps(60, () => {
+    runAtTargetFps(15, () => {
       'worklet';
       
       renderCallback(frame);
