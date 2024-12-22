@@ -60,36 +60,6 @@ const fragmentShaderSource = `
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
     setProgram(program);
-  /*
-    const pointer = await GLView.createTestHardwareBuffer(0);
-    if (!pointer) {
-      console.error("Failed to create hardware buffer");
-      return;
-    }
-    
-    const hbtextureId = await GLView.createTextureFromTexturePointer(gl.contextId, pointer);
-    if (!hbtextureId) {
-      console.error("Failed to create hardware buffer texture");
-      return;
-    }
-    console.log("Texture Id is  = " + hbtextureId)
-
-    const hbTexture = { id: hbtextureId } as WebGLTexture
-    gl.flush();
-    gl.endFrameEXP();
-    */
-  }
-  
-  /**
-   * This function is called on every frame received from the camera
-   * and updates the texture with the current frame.
-   */
-
-  function checkShaderCompilation(gl, shader, shaderType) {
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const infoLog = gl.getShaderInfoLog(shader);
-      console.error(`Error compiling ${shaderType} shader: `, infoLog);
-    }
   }
   
   const renderCallback =  Worklets.createRunOnJS(async (frame : Frame) => {
@@ -104,7 +74,6 @@ const fragmentShaderSource = `
       console.error("Failed to create texture from pointer");
       return;
     }
-  
     console.log("Texture ID is", hbtextureId);
 
     const hbTexture = { id: hbtextureId } as WebGLTexture
@@ -120,11 +89,9 @@ const fragmentShaderSource = `
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D,hbTexture);
 
-
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
 
     gl.useProgram(program);
 
@@ -136,11 +103,11 @@ const fragmentShaderSource = `
     gl.uniform1i(textureLocation, 0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    // Validated up until here.
+
+    // Check for errors after callback execution, this should only be called in debugging.
     checkGLError("Final State check",gl)
     gl.flush();
     gl.endFrameEXP();
-    
   });
   
   return (

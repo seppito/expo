@@ -78,11 +78,6 @@ void drawQuad() {
     glEnableVertexAttribArray(0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
-void uploadYUVTexture(GLuint texture, int width, int height, int stride, void* data) {
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
-}
 static void checkGLError(const char* msg) {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -90,7 +85,6 @@ static void checkGLError(const char* msg) {
     }
 }
 int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
-    
     EXGLSysLog("Reached Upload Texture to OpenGL");
 
     auto exglObjId = createObject();
@@ -105,20 +99,13 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
         AHardwareBuffer_release(hardwareBuffer);
         return 0;
     }
+    int width = desc.width;
+    int height = desc.height;
 
     if (desc.format == AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420) {
         EXGLSysLog("AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420");
-        int width = desc.width;
-        int height = desc.height;
-
         AHardwareBuffer_Planes planes = {};
-        int32_t lock_result = AHardwareBuffer_lockPlanes(
-            hardwareBuffer,
-            AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
-            -1,
-            nullptr,
-            &planes
-        );
+        int32_t lock_result = AHardwareBuffer_lockPlanes(hardwareBuffer, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1, nullptr, &planes);
 
         if (lock_result != 0) {
             EXGLSysLog("Failed to lock AHardwareBuffer");
@@ -133,33 +120,70 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
         int yStride = planes.planes[0].rowStride;
         int uStride = planes.planes[1].rowStride;
         int vStride = planes.planes[2].rowStride;
+        const char *vertexShaderSource = R"(
+            precision mediump float;
+            attribute vec4 a_position;
+            attribute vec2 a_texCoord;
+            varying vec2 v_texCoord;
 
-        EXGLSysLog("YUV Planes locked with strides Y:%d, U:%d, V:%d", yStride, uStride, vStride);
+            void main() {
+                gl_Position = a_position;
+                v_texCoord = a_texCoord;
+            }
+        )";
 
+        const char *fragmentShaderSource = R"(
+            precision mediump float;
+
+            varying vec2 v_texCoord;
+            uniform sampler2D y_texture;
+            uniform sampler2D u_texture;
+            uniform sampler2D v_texture;
+
+            void main() {
+                float y = texture2D(y_texture, v_texCoord).r;
+                float u = texture2D(u_texture, v_texCoord).r - 0.5;
+                float v = texture2D(v_texture, v_texCoord).r - 0.5;
+
+                float r = y + 1.402 * v;
+                float g = y - 0.344 * u - 0.714 * v;
+                float b = y + 1.772 * u;
+
+                gl_FragColor = vec4(r, g, b, 1.0);
+            }
+        )";
+        
         addToNextBatch([=] {
-            assert(objects.find(exglObjId) == objects.end());
+            EXGLSysLog("Inside GL batch operation.");
 
+            GLuint textureY, textureU, textureV;
+            glGenTextures(1, &textureY);
+            glGenTextures(1, &textureU);
+            glGenTextures(1, &textureV);
 
-            // *** Start with a simple shader that outputs a red color to verify pipeline ***
-            const char *vertexShaderSource = R"(
-                precision mediump float;
-                attribute vec4 a_position;
-                attribute vec2 a_texCoord;
-                varying vec2 vTexCoord;
-                void main() {
-                    gl_Position = a_position;
-                    vTexCoord = a_texCoord;
-                }
-            )";
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, textureY);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, yPlane);
 
-            // Temporary fragment shader that just outputs red
-            const char *fragmentShaderSource = R"(
-                precision mediump float;
-                varying vec2 vTexCoord;
-                void main() {
-                    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-                }
-            )";
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, textureU);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, uPlane);
+
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, textureV);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, vPlane);
 
             // Compile shaders and create program
             GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource, "Vertex Shader");
@@ -168,65 +192,64 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
             glDeleteShader(vertexShader);
             glDeleteShader(fragmentShader);
 
-            // Create an RGB texture to store the shader output
-            GLuint framebuffer, rgbTexture;
+            checkGLError("Post Shader Compilation");
+             // Bind textures to the shader program
+            GLint locY = glGetUniformLocation(defaultProgram, "y_texture");
+            glUniform1i(locY, 0);
+            GLint locU = glGetUniformLocation(defaultProgram, "u_texture");
+            glUniform1i(locU, 1);
+            GLint locV = glGetUniformLocation(defaultProgram, "v_texture");
+            glUniform1i(locV, 2);
+
+            // Set up vertex attributes for position and texture coordinates
+            GLint a_position = glGetAttribLocation(defaultProgram, "a_position");
+            glEnableVertexAttribArray(a_position);
+            glVertexAttribPointer(a_position, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+
+            GLint a_texCoord = glGetAttribLocation(defaultProgram, "a_texCoord");
+            glEnableVertexAttribArray(a_texCoord);
+            glVertexAttribPointer(a_texCoord, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
+            checkGLError("Post Shader Compilation");
+
+            GLuint framebuffer,rgbTexture;
             glGenFramebuffers(1, &framebuffer);
             glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
             glGenTextures(1, &rgbTexture);
             glBindTexture(GL_TEXTURE_2D, rgbTexture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rgbTexture, 0);
             checkFramebufferStatus();
-
-            glUseProgram(defaultProgram);
-            checkGLError("useProgram");
-
+            
             glViewport(0, 0, width, height);
 
-            // Setup a full-screen quad with positions and texCoords
             float vertices[] = {
-                //  Position   TexCoord
-                -1.0f, -1.0f,   0.0f, 0.0f,
-                 1.0f, -1.0f,   1.0f, 0.0f,
-                -1.0f,  1.0f,   0.0f, 1.0f,
-                 1.0f,  1.0f,   1.0f, 1.0f
+                -1.0f, -1.0f, 0.0f, 0.0f,
+                 1.0f, -1.0f, 1.0f, 0.0f,
+                -1.0f,  1.0f, 0.0f, 1.0f,
+                 1.0f,  1.0f, 1.0f, 1.0f
             };
-
-            GLint a_position = glGetAttribLocation(defaultProgram, "a_position");
-            GLint a_texCoord = glGetAttribLocation(defaultProgram, "a_texCoord");
-
-            GLuint vao;
-            glGenVertexArrays(1, &vao);
-            glBindVertexArray(vao);
 
             GLuint vbo;
             glGenBuffers(1, &vbo);
             glBindBuffer(GL_ARRAY_BUFFER, vbo);
             glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-            glEnableVertexAttribArray(a_position);
-            glVertexAttribPointer(a_position, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-
             glEnableVertexAttribArray(a_texCoord);
             glVertexAttribPointer(a_texCoord, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            checkGLError("drawArrays");
 
+            unsigned char pixel[4] = {0};
+            glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+            EXGLSysLog("Pixel after draw: R=%d G=%d B=%d A=%d", pixel[0], pixel[1], pixel[2], pixel[3]);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glDeleteFramebuffers(1, &framebuffer);
-
-            glDeleteVertexArrays(1, &vao);
             glDeleteBuffers(1, &vbo);
 
-            // Map the final RGB texture to the EXGL object
             mapObject(exglObjId, rgbTexture);
-            EXGLSysLog("YUV to RGB conversion done and texture mapped: %d",rgbTexture);
+            AHardwareBuffer_unlock(hardwareBuffer, nullptr);
+            AHardwareBuffer_release(hardwareBuffer);
         });
 
     } else {
