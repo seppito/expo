@@ -66,37 +66,40 @@ export class GLView extends React.Component<GLViewProps> {
 
 
   static  vertexShaderYuvSource = `
-    precision mediump float;
-    attribute vec4 a_position;
-    attribute vec2 a_texCoord;
-    varying vec2 vTexCoord;
-    void main() {
-        gl_Position = a_position;
-        vTexCoord = a_texCoord;
-    }
+  precision mediump float;
+  attribute vec4 a_position;
+  attribute vec2 a_texCoord;
+  varying vec2 v_texCoord;
+
+  void main() {
+      gl_Position = a_position;
+      v_texCoord = a_texCoord;
+  }
    `
 
   static fragmentShaderYuvSource = `
-    precision mediump float;
-    uniform sampler2D s_texture_y;
-    uniform sampler2D s_texture_u;
-    uniform sampler2D s_texture_v;
-    varying vec2 vTexCoord;
+  precision mediump float;
 
-    void main() {
-        float Y = texture2D(s_texture_y, vTexCoord).r;
-        float U = texture2D(s_texture_u, vTexCoord).r - 0.5;
-        float V = texture2D(s_texture_v, vTexCoord).r - 0.5;
-        vec3 yuv = vec3(Y, U, V);
-        mat3 colorMatrix = mat3(
-            1,  0,      1.402,
-            1, -0.344, -0.714,
-            1,  1.772,  0
-        );
-        vec3 rgb = yuv * colorMatrix;
-        gl_FragColor = vec4(rgb, 1.0);
-    }
+  varying vec2 v_texCoord;
+  uniform sampler2D y_texture;
+  uniform sampler2D u_texture;
+  uniform sampler2D v_texture;
+
+  void main() {
+      float y = texture2D(y_texture, v_texCoord).r;
+      float u = texture2D(u_texture, v_texCoord).r - 0.5;
+      float v = texture2D(v_texture, v_texCoord).r - 0.5;
+
+      float r = y + 1.402 * v;
+      float g = y - 0.344 * u - 0.714 * v;
+      float b = y + 1.772 * u;
+
+      gl_FragColor = vec4(r, g, b, 1.0);
+  }
  `
+  static async setYuvShaderProgram(exglCtxId: number ,yuvProgramId: Number): Promise<any> {  
+    return await ExponentGLObjectManager.setYuvShaderProgram(exglCtxId,yuvProgramId);
+  }
 
   static async prepareContextForNativeCamera(exglCtxId: number): Promise<any> {
     "This will initialize the required shaders to validate it's compilation status faster on the JS thread.";
@@ -123,8 +126,10 @@ export class GLView extends React.Component<GLViewProps> {
     checkGLError("post shader prepare context 2",gl);
 
     const yuvProgram = gl.createProgram()
-    console.log ("Yuv program created = " +yuvProgram); 
-    //
+    return new Promise<any>((resolve) => {
+        resolve(yuvProgram);
+    });
+  
   }
   static async createTextureFromTexturePointer(exglCtxId: number, pointer: bigint): Promise<any> {
 

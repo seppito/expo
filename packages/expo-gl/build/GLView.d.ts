@@ -25,6 +25,7 @@ export declare class GLView extends React.Component<GLViewProps> {
     static createContextAsync(): Promise<ExpoWebGLRenderingContext>;
     static vertexShaderYuvSource: string;
     static fragmentShaderYuvSource: string;
+    static setYuvShaderProgram(exglCtxId: number, yuvProgramId: Number): Promise<any>;
     static prepareContextForNativeCamera(exglCtxId: number): Promise<any>;
     static createTextureFromTexturePointer(exglCtxId: number, pointer: bigint): Promise<any>;
     static createTestHardwareBuffer(option: number): Promise<any>;

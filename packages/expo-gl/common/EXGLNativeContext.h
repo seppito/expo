@@ -58,7 +58,6 @@ class EXGLContext {
   void maybeResolveWorkletContext(jsi::Runtime &runtime);
   void prepareWorkletContext();
 
-
   int uploadTextureToOpenGL(jsi::Runtime &runtime,AHardwareBuffer *hardwareBuffer);
   // --- Queue handling --------------------------------------------------------
 
@@ -145,7 +144,7 @@ class EXGLContext {
   GLint defaultFramebuffer = 0;
 
   // PreCompiled Program
-  //GLint defaultProgram = 0;
+  GLint defaultProgram = 0;
 
   bool unpackFLipY = false;
 };

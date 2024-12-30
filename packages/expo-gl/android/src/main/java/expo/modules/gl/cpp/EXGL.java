@@ -22,6 +22,7 @@ public class EXGL {
   public static native void EXGLContextDrawEnded(int exglCtxId);
   // Native Method to upload a texture to a pointer.
   public static native int EXGLContextUploadTexture(long jsCtxPtr,int exglCtxId,long hardwareBuffer);
+  public static native void EXGLContextUploadShader(int exglCtxId,int yuvShaderProgramId);
   // Native method to create and return a Hardware Buffer pointer.
   public static native long EXGLContextCreateTestHardwareBuffer(int bufferFormat);
 }

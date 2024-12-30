@@ -23,23 +23,25 @@ EXGLObjectId EXGLContextUploadTexture(void *jsiPtr, EXGLContextId exglCtxId, AHa
   // Get the context and lock it
   EXGLObjectId textureId = 0;
   auto [exglCtx, lock] = ContextGet(exglCtxId);
-  __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Context Upload Texture was called.");
 
   if (exglCtx) {
-    __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Executing uploadTextureToOpenGL.");
-
-    // Call uploadTextureToOpenGL and capture the texture ID
-  textureId = exglCtx->uploadTextureToOpenGL(*reinterpret_cast<jsi::Runtime *>(jsiPtr), hardwareBuffer);
-
-    // Log the texture ID
-    __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Texture ID created: %d", textureId);
-
+    textureId = exglCtx->uploadTextureToOpenGL(*reinterpret_cast<jsi::Runtime *>(jsiPtr), hardwareBuffer);
   } else {
-    __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Context Upload Texture Failed.");
+    __android_log_print(ANDROID_LOG_ERROR, "EXGLNativeApi", "Context Not found");
   }
   return textureId;
 }
 
+
+void EXGLContextSetYuvProgram(EXGLContextId exglCtxId,int objShaderId){
+  auto [exglCtx, lock] = ContextGet(exglCtxId);
+
+  if (exglCtx) {
+    // Call uploadTextureToOpenGL and capture the texture ID
+    exglCtx->defaultProgram = exglCtx->lookupObject(objShaderId);
+    __android_log_print(ANDROID_LOG_INFO, "EXGLNativeApi", "Default program was setup %d",exglCtx->defaultProgram);
+  } 
+}
 
 void EXGLContextPrepareWorklet(EXGLContextId exglCtxId) {
   auto [exglCtx, lock] = ContextGet(exglCtxId);

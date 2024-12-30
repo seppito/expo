@@ -60,10 +60,19 @@ const fragmentShaderSource = `
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
     setProgram(program);
+
+    const {id} = await GLView.prepareContextForNativeCamera(gl.contextId);
+    console.log("Shader Id = " + id);
+    // This to update the queue and ID prior the object assignation to the GL thread.
+    gl.flush();
+    gl.endFrameEXP();
+
+    await GLView.setYuvShaderProgram(gl.contextId,id);
   }
   
   const renderCallback =  Worklets.createRunOnJS(async (frame : Frame) => {
     if (!gl) return;
+    
     const nativeBuffer = frame.getNativeBuffer();
     const pointer = nativeBuffer.pointer;
   
@@ -105,9 +114,10 @@ const fragmentShaderSource = `
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // Check for errors after callback execution, this should only be called in debugging.
-    checkGLError("Final State check",gl)
+    checkGLError("Final State check",gl);
     gl.flush();
     gl.endFrameEXP();
+    
   });
   
   return (

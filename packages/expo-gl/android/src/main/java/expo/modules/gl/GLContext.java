@@ -40,6 +40,8 @@ import static expo.modules.gl.cpp.EXGL.*;
 
 public class GLContext {
   private int mEXGLCtxId = -1;
+  private int yuvShaderProgram = -1;
+
 
   private final GLObjectManagerModule mManager;
   private GLThread mGLThread;
@@ -51,6 +53,8 @@ public class GLContext {
   private HardwareBuffer currentHB;
   private BlockingQueue<Runnable> mEventQueue = new LinkedBlockingQueue<>();
   private JavaScriptContextProvider mJavaScriptContextProvider; // Declare as a property
+
+
 
   public GLContext(GLObjectManagerModule manager) {
     super();
@@ -470,12 +474,19 @@ public class GLContext {
     return (Integer) value;
   }
 
+  public void setYuvShaderProgram(int yuvShaderProgramId){
+    Log.i("GLContext", "setter called for  yuv id:  "+ yuvShaderProgramId);
+    EXGLContextUploadShader(mEXGLCtxId,yuvShaderProgramId);
+  }
+
   public int  push_texture_from_native_buffer(long native_buffer_address){
     long jsContextRef = mJavaScriptContextProvider.getJavaScriptContextRef();
+
     int objVal = EXGLContextUploadTexture(jsContextRef,mEXGLCtxId,native_buffer_address);
     Log.i("GLContext", "objVal "+ objVal);
     return objVal;
   }
+
 
   public HardwareBuffer createTestHardwareBuffer() {
           int width = 256;

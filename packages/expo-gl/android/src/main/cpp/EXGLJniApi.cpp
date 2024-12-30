@@ -225,6 +225,18 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextCreateTestHardwareBuffer(
     return (jlong)pointer; 
 }
 
+JNIEXPORT void JNICALL
+Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadShader(
+    JNIEnv *env,
+    jclass clazz,
+    jint exglCtxId,
+    jint objShaderId ) 
+{
+  __android_log_print(ANDROID_LOG_INFO, "EXGLJni", "Setter is called w shaderID = %d",objShaderId);
+
+   EXGLContextSetYuvProgram(exglCtxId,objShaderId);
+}
+
 #else
 
 JNIEXPORT void JNICALL

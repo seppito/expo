@@ -87,14 +87,13 @@ class GLObjectManagerModule : Module() {
       true
     }
 
-    AsyncFunction("uploadAHardwareBufferAsync") { exglCtxId: Int, pointerString: String, promise: Promise ->
+    AsyncFunction("uploadAHardwareBufferAsync") { exglCtxId: Int, pointerString: String,promise: Promise ->
       val context = mGLContextMap[exglCtxId]
         ?: throw InvalidGLContextException()
       Log.i("GLObjectManagerModule","Calling push texture from native buffer")
       // Convert the hex string back to a ULong, then to a signed jlong
       val pointer = pointerString.toULong(16).toLong()
       
-      Log.i("GLObjectManagerModule", "Reconstructed Pointer from string: $pointer (hex: 0x" + pointer.toULong().toString(16) + ")")
       val exglObjId = context.push_texture_from_native_buffer(pointer)
       promise.resolve(exglObjId)
     }
@@ -115,6 +114,15 @@ class GLObjectManagerModule : Module() {
       val response = Bundle()
       response.putLong("pointer", pointer)
       promise.resolve(response)
+    }
+
+    AsyncFunction("setYuvShaderProgram") { exglCtxId: Int,yuvProgramId: Int,promise: Promise ->
+      val context = mGLContextMap[exglCtxId]
+        ?: throw InvalidGLContextException()  
+        Log.i("GLObjectManagerModule","Setter Call with program id  =  $yuvProgramId")
+
+        context.setYuvShaderProgram(yuvProgramId);
+        promise.resolve(1);
     }
   }
 
