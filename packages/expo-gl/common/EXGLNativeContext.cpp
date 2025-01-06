@@ -6,6 +6,7 @@
 #include <cstdint> // for uint32_t
 #include "EXWebGLMethods.h"
 #include "EXWebGLMethodsHelpers.h"
+#include "EXGLImageUtils.h"
 //#include "EXWebGLConstants.def"
 
 namespace expo {
@@ -99,163 +100,145 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
         AHardwareBuffer_release(hardwareBuffer);
         return 0;
     }
+
     int width = desc.width;
     int height = desc.height;
 
-    if (desc.format == AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420) {
-        EXGLSysLog("AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420");
-        AHardwareBuffer_Planes planes = {};
-        int32_t lock_result = AHardwareBuffer_lockPlanes(hardwareBuffer, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1, nullptr, &planes);
+   if (desc.format == AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420) {
+      EXGLSysLog("AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420");
+      AHardwareBuffer_Planes planes = {};
+      int32_t lock_result = AHardwareBuffer_lockPlanes(
+          hardwareBuffer,
+          AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN,
+          -1,
+          nullptr,
+          &planes
+      );
 
-        if (lock_result != 0) {
-            EXGLSysLog("Failed to lock AHardwareBuffer");
-            AHardwareBuffer_release(hardwareBuffer);
-            return 0;
-        }
+      if (lock_result != 0) {
+          EXGLSysLog("Failed to lock AHardwareBuffer");
+          AHardwareBuffer_release(hardwareBuffer);
+          return 0;
+      }
 
-        void *yPlane = planes.planes[0].data;
-        void *uPlane = planes.planes[1].data;
-        void *vPlane = planes.planes[2].data;
+      void* yPlane = planes.planes[0].data;
+      void* uPlane = planes.planes[1].data;
+      void* vPlane = planes.planes[2].data;
 
-        int yStride = planes.planes[0].rowStride;
-        int uStride = planes.planes[1].rowStride;
-        int vStride = planes.planes[2].rowStride;
-        const char *vertexShaderSource = R"(
-            precision mediump float;
-            attribute vec4 a_position;
-            attribute vec2 a_texCoord;
-            varying vec2 v_texCoord;
+      int yStride     = planes.planes[0].rowStride;
+      int uStride     = planes.planes[1].rowStride;
+      int vStride     = planes.planes[2].rowStride;
+      int pixelStride = planes.planes[1].pixelStride; 
 
-            void main() {
-                gl_Position = a_position;
-                v_texCoord = a_texCoord;
-            }
-        )";
+      auto uPlaneObjId = createObject();
+      auto vPlaneObjId = createObject();
 
-        const char *fragmentShaderSource = R"(
-            precision mediump float;
+      std::vector<uint8_t> yVec(height * width);
+      for (int row = 0; row < height; ++row) {
+          std::memcpy(
+              yVec.data() + (row * width),
+              static_cast<uint8_t*>(yPlane) + (row * yStride),
+              width
+          );
+      }
+      gl_cpp::flipPixels(yVec.data(), width, height);
 
-            varying vec2 v_texCoord;
-            uniform sampler2D y_texture;
-            uniform sampler2D u_texture;
-            uniform sampler2D v_texture;
+      std::vector<uint8_t> uVec((height / 2) * (width / 2));
+      std::vector<uint8_t> vVec((height / 2) * (width / 2));
 
-            void main() {
-                float y = texture2D(y_texture, v_texCoord).r;
-                float u = texture2D(u_texture, v_texCoord).r - 0.5;
-                float v = texture2D(v_texture, v_texCoord).r - 0.5;
+      auto* srcU = static_cast<uint8_t*>(uPlane);
+      auto* srcV = static_cast<uint8_t*>(vPlane);
 
-                float r = y + 1.402 * v;
-                float g = y - 0.344 * u - 0.714 * v;
-                float b = y + 1.772 * u;
+      for (int row = 0; row < (height / 2); ++row) {
+          for (int col = 0; col < (width / 2); ++col) {
+              int dstIndex = row * (width / 2) + col;
+              uVec[dstIndex] = srcU[row * uStride + col * pixelStride];
+              vVec[dstIndex] = srcV[row * vStride + col * pixelStride];
+          }
+      }
+      // Flip U and V
+      gl_cpp::flipPixels(uVec.data(), width / 2, height / 2);
+      gl_cpp::flipPixels(vVec.data(), width / 2, height / 2);
 
-                gl_FragColor = vec4(r, g, b, 1.0);
-            }
-        )";
-        
-        addToNextBatch([=] {
-            EXGLSysLog("Inside GL batch operation.");
+      // Done reading from CPU memory
+      AHardwareBuffer_unlock(hardwareBuffer, nullptr);
+      AHardwareBuffer_release(hardwareBuffer);
 
-            GLuint textureY, textureU, textureV;
-            glGenTextures(1, &textureY);
-            glGenTextures(1, &textureU);
-            glGenTextures(1, &textureV);
+      // 3. Queue the OpenGL upload
+      addToNextBatch([=, yVec{std::move(yVec)}, uVec{std::move(uVec)}, vVec{std::move(vVec)}] {
+          EXGLSysLog("Inside GL batch operation.");
+          glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, textureY);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, yPlane);
+          GLuint textureY, textureU, textureV;
+          glGenTextures(1, &textureY);
+          glGenTextures(1, &textureU);
+          glGenTextures(1, &textureV);
 
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, textureU);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, uPlane);
+          // -- Upload Y-plane
+          glActiveTexture(GL_TEXTURE0);
+          glBindTexture(GL_TEXTURE_2D, textureY);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+          glTexImage2D(
+              GL_TEXTURE_2D,
+              0,
+              GL_LUMINANCE,
+              width,
+              height,
+              0,
+              GL_LUMINANCE,
+              GL_UNSIGNED_BYTE,
+              yVec.data()
+          );
 
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_2D, textureV);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, vPlane);
+          // -- Upload U-plane
+          glActiveTexture(GL_TEXTURE1);
+          glBindTexture(GL_TEXTURE_2D, textureU);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+          glTexImage2D(
+              GL_TEXTURE_2D,
+              0,
+              GL_LUMINANCE,
+              width / 2,
+              height / 2,
+              0,
+              GL_LUMINANCE,
+              GL_UNSIGNED_BYTE,
+              uVec.data()
+          );
 
-            // Compile shaders and create program
-            GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource, "Vertex Shader");
-            GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource, "Fragment Shader");
-            GLuint defaultProgram = createProgram(vertexShader, fragmentShader);
-            glDeleteShader(vertexShader);
-            glDeleteShader(fragmentShader);
+          // -- Upload V-plane
+          glActiveTexture(GL_TEXTURE2);
+          glBindTexture(GL_TEXTURE_2D, textureV);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+          glTexImage2D(
+              GL_TEXTURE_2D,
+              0,
+              GL_LUMINANCE,
+              width / 2,
+              height / 2,
+              0,
+              GL_LUMINANCE,
+              GL_UNSIGNED_BYTE,
+              vVec.data()
+          );
 
-            checkGLError("Post Shader Compilation");
-             // Bind textures to the shader program
-            GLint locY = glGetUniformLocation(defaultProgram, "y_texture");
-            glUniform1i(locY, 0);
-            GLint locU = glGetUniformLocation(defaultProgram, "u_texture");
-            glUniform1i(locU, 1);
-            GLint locV = glGetUniformLocation(defaultProgram, "v_texture");
-            glUniform1i(locV, 2);
-
-            // Set up vertex attributes for position and texture coordinates
-            GLint a_position = glGetAttribLocation(defaultProgram, "a_position");
-            glEnableVertexAttribArray(a_position);
-            glVertexAttribPointer(a_position, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
-
-            GLint a_texCoord = glGetAttribLocation(defaultProgram, "a_texCoord");
-            glEnableVertexAttribArray(a_texCoord);
-            glVertexAttribPointer(a_texCoord, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
-            checkGLError("Post Shader Compilation");
-
-            GLuint framebuffer,rgbTexture;
-            glGenFramebuffers(1, &framebuffer);
-            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-
-            glGenTextures(1, &rgbTexture);
-            glBindTexture(GL_TEXTURE_2D, rgbTexture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rgbTexture, 0);
-            checkFramebufferStatus();
-            
-            glViewport(0, 0, width, height);
-
-            float vertices[] = {
-                -1.0f, -1.0f, 0.0f, 0.0f,
-                 1.0f, -1.0f, 1.0f, 0.0f,
-                -1.0f,  1.0f, 0.0f, 1.0f,
-                 1.0f,  1.0f, 1.0f, 1.0f
-            };
-
-            GLuint vbo;
-            glGenBuffers(1, &vbo);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-            glEnableVertexAttribArray(a_texCoord);
-            glVertexAttribPointer(a_texCoord, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-            unsigned char pixel[4] = {0};
-            glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
-            EXGLSysLog("Pixel after draw: R=%d G=%d B=%d A=%d", pixel[0], pixel[1], pixel[2], pixel[3]);
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glDeleteFramebuffers(1, &framebuffer);
-            glDeleteBuffers(1, &vbo);
-
-            mapObject(exglObjId, rgbTexture);
-            AHardwareBuffer_unlock(hardwareBuffer, nullptr);
-            AHardwareBuffer_release(hardwareBuffer);
-        });
-
-    } else {
+          // Map object IDs
+          mapObject(exglObjId, textureY);
+          mapObject(uPlaneObjId, textureU);
+          mapObject(vPlaneObjId, textureV);
+    });
+}
+ else {
         // RGBA fallback path (unchanged)
-        int width = desc.width;
-        int height = desc.height;
         void *bufferData = nullptr;
         int32_t lock_result = AHardwareBuffer_lock(
             hardwareBuffer,
@@ -314,6 +297,7 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     EXGLSysLog("Done Upload Texture Func.");
     return static_cast<int>(exglObjId);
 }
+
 
 
 void EXGLContext::maybeResolveWorkletContext(jsi::Runtime &runtime) {
