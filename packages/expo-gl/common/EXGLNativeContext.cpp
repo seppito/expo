@@ -26,59 +26,8 @@ void EXGLContext::prepareContext(jsi::Runtime &runtime, std::function<void(void)
     EXGLSysLog("Failed to setup EXGLContext [%s]", err.what());
   }
 }
-void checkShaderCompilation(GLuint shader, const char *shaderName) {
-  GLint success;
-  GLchar infoLog[512];
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-  if (!success) {
-      glGetShaderInfoLog(shader, 512, NULL, infoLog);
-      EXGLSysLog("%s compilation failed: %s", shaderName, infoLog);
-  }
-}
 
-void checkProgramLinking(GLuint program, const char *programName) {
-  GLint success;
-  GLchar infoLog[512];
-  glGetProgramiv(program, GL_LINK_STATUS, &success);
-  if (!success) {
-      glGetProgramInfoLog(program, 512, NULL, infoLog);
-      EXGLSysLog("%s linking failed: %s", programName, infoLog);
-  }
-}
-static GLuint compileShader(GLenum type, const char* source, const char* name) {
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
-    checkShaderCompilation(shader, name);
-    return shader;
-}
 
-GLuint createProgram(GLuint vertexShader, GLuint fragmentShader) {
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
-    return program;
-}
-
-void checkFramebufferStatus() {
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (status != GL_FRAMEBUFFER_COMPLETE) {
-        EXGLSysLog("Framebuffer error: %d", status);
-    }
-}
-void drawQuad() {
-    float vertices[] = { -1, -1, 1, -1, -1, 1, 1, 1 };
-    GLuint vao, vbo;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-}
 static void checkGLError(const char* msg) {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
@@ -160,11 +109,9 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
       gl_cpp::flipPixels(uVec.data(), width / 2, height / 2);
       gl_cpp::flipPixels(vVec.data(), width / 2, height / 2);
 
-      // Done reading from CPU memory
       AHardwareBuffer_unlock(hardwareBuffer, nullptr);
       AHardwareBuffer_release(hardwareBuffer);
 
-      // 3. Queue the OpenGL upload
       addToNextBatch([=, yVec{std::move(yVec)}, uVec{std::move(uVec)}, vVec{std::move(vVec)}] {
           EXGLSysLog("Inside GL batch operation.");
           glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -238,7 +185,6 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     });
 }
  else {
-        // RGBA fallback path (unchanged)
         void *bufferData = nullptr;
         int32_t lock_result = AHardwareBuffer_lock(
             hardwareBuffer,
