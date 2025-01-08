@@ -30,72 +30,77 @@ export class GLView extends React.Component {
      * Also, keep in mind that you need to set up a viewport and create your own framebuffer and texture that you will be drawing to, before you take a snapshot.
      * @return A promise that resolves to WebGL context object. See [WebGL API](#webgl-api) for more details.
      */
+    static async createYuvProgramAsync(glCtxId) {
+        const glCtx = getGl(glCtxId);
+        const vertexShaderSourceYUV = `
+    precision mediump float;
+    attribute vec3 position;
+    attribute vec2 texcoord;
+    varying vec2 vTexCoord;
+
+    void main() {
+      gl_Position = vec4(position, 1.0);
+      vTexCoord = texcoord;
+    }
+  `;
+        const fragmentShaderSourceYUV = `
+      precision mediump float;
+      varying vec2 vTexCoord;
+      uniform sampler2D yTexture;
+      uniform sampler2D uTexture;
+      uniform sampler2D vTexture;
+
+      void main() {
+        float y = (texture2D(yTexture, vTexCoord).r - 0.0625) * 1.164;
+        float u = texture2D(uTexture, vTexCoord).r - 0.5;
+        float v = texture2D(vTexture, vTexCoord).r - 0.5;
+
+        // YUV -> RGB
+        vec3 rgb = vec3(
+          y + 1.596 * v,
+          y - 0.391 * u - 0.813 * v,
+          y + 2.018 * u
+        );
+        gl_FragColor = vec4(rgb, 1.0);
+      }
+    `;
+        console.log("pre shader.");
+        const vertYUV = glCtx.createShader(glCtx.VERTEX_SHADER);
+        glCtx.shaderSource(vertYUV, vertexShaderSourceYUV);
+        glCtx.compileShader(vertYUV);
+        const fragYUV = glCtx.createShader(glCtx.FRAGMENT_SHADER);
+        glCtx.shaderSource(fragYUV, fragmentShaderSourceYUV);
+        glCtx.compileShader(fragYUV);
+        console.log("post frag.");
+        const progYUV = glCtx.createProgram();
+        glCtx.attachShader(progYUV, vertYUV);
+        glCtx.attachShader(progYUV, fragYUV);
+        glCtx.linkProgram(progYUV);
+        console.log("post prog");
+        const vertices = new Float32Array([
+            -1.0, -1.0, 0.0, 0.0, 0.0,
+            1.0, -1.0, 0.0, 1.0, 0.0,
+            -1.0, 1.0, 0.0, 0.0, 1.0,
+            1.0, 1.0, 0.0, 1.0, 1.0,
+        ]);
+        // ------------------------------------------------
+        // Create Vertex Buffer
+        // ------------------------------------------------
+        const vtxBuffer = glCtx.createBuffer();
+        glCtx.bindBuffer(glCtx.ARRAY_BUFFER, vtxBuffer);
+        glCtx.bufferData(glCtx.ARRAY_BUFFER, vertices, glCtx.STATIC_DRAW);
+        return { progYUV, vtxBuffer };
+    }
+    static async prepareContextForNativeCamera(exglCtxId) {
+        return await GLView.createYuvProgramAsync(exglCtxId);
+    }
     static async createContextAsync() {
         const { exglCtxId } = await ExponentGLObjectManager.createContextAsync();
         return getGl(exglCtxId);
     }
-    static vertexShaderYuvSource = `
-    precision mediump float;
-    attribute vec4 a_position;
-    attribute vec2 a_texCoord;
-    varying vec2 vTexCoord;
-    void main() {
-        gl_Position = a_position;
-        vTexCoord = a_texCoord;
-    }
-   `;
-    static fragmentShaderYuvSource = `
-    precision mediump float;
-    uniform sampler2D s_texture_y;
-    uniform sampler2D s_texture_u;
-    uniform sampler2D s_texture_v;
-    varying vec2 vTexCoord;
-
-    void main() {
-        float Y = texture2D(s_texture_y, vTexCoord).r;
-        float U = texture2D(s_texture_u, vTexCoord).r - 0.5;
-        float V = texture2D(s_texture_v, vTexCoord).r - 0.5;
-        vec3 yuv = vec3(Y, U, V);
-        mat3 colorMatrix = mat3(
-            1,  0,      1.402,
-            1, -0.344, -0.714,
-            1,  1.772,  0
-        );
-        vec3 rgb = yuv * colorMatrix;
-        gl_FragColor = vec4(rgb, 1.0);
-    }
- `;
-    static async prepareContextForNativeCamera(exglCtxId) {
-        "This will initialize the required shaders to validate it's compilation status faster on the JS thread.";
-        function checkGLError(step, gl) {
-            const error = gl.getError();
-            if (error !== gl.NO_ERROR) {
-                console.error(`OpenGL error after ${step}:`, error);
-            }
-        }
-        const gl = await getGl(exglCtxId);
-        const vertexShaderYuv = gl.createShader(gl.VERTEX_SHADER);
-        const fragmentShaderYuv = gl.createShader(gl.FRAGMENT_SHADER);
-        if (vertexShaderYuv == null || fragmentShaderYuv == null) {
-            console.log("One of the shaders pointers is null");
-            return 0;
-        }
-        gl.shaderSource(vertexShaderYuv, GLView.vertexShaderYuvSource);
-        gl.compileShader(vertexShaderYuv);
-        checkGLError("post shader prepare context", gl);
-        gl.shaderSource(vertexShaderYuv, GLView.vertexShaderYuvSource);
-        gl.compileShader(vertexShaderYuv);
-        checkGLError("post shader prepare context 2", gl);
-        const yuvProgram = gl.createProgram();
-        console.log("Yuv program created = " + yuvProgram);
-        //
-    }
     static async createTextureFromTexturePointer(exglCtxId, pointer) {
         const pointerBigInt = BigInt(pointer) & BigInt('0xFFFFFFFFFFFFFFFF'); // Mask lower 64 bits
-        console.log('Create Texture : Pointer as BigInt:', pointerBigInt);
-        console.log('Create Texture : Pointer as hexadecimal:', pointerBigInt.toString(16));
         const pointerString = pointerBigInt.toString(16); // Convert to hex string
-        console.log('Pointer as hex string (to send to Kotlin):', pointerString);
         return await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId, pointerString);
     }
     static async createTestHardwareBuffer(option) {

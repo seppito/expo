@@ -22,10 +22,9 @@ export declare class GLView extends React.Component<GLViewProps> {
      * Also, keep in mind that you need to set up a viewport and create your own framebuffer and texture that you will be drawing to, before you take a snapshot.
      * @return A promise that resolves to WebGL context object. See [WebGL API](#webgl-api) for more details.
      */
-    static createContextAsync(): Promise<ExpoWebGLRenderingContext>;
-    static vertexShaderYuvSource: string;
-    static fragmentShaderYuvSource: string;
+    static createYuvProgramAsync(glCtxId: number): Promise<any>;
     static prepareContextForNativeCamera(exglCtxId: number): Promise<any>;
+    static createContextAsync(): Promise<ExpoWebGLRenderingContext>;
     static createTextureFromTexturePointer(exglCtxId: number, pointer: bigint): Promise<any>;
     static createTestHardwareBuffer(option: number): Promise<any>;
     /**

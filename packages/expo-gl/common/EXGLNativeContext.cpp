@@ -337,7 +337,6 @@ void EXGLContext::destroyObject(EXGLObjectId exglObjId) noexcept {
 }
 
 void EXGLContext::mapObject(EXGLObjectId exglObjId, GLuint glObj) noexcept {
-  EXGLSysLog("Map OBJ is called for obj id %d",exglObjId);
   objects[exglObjId] = glObj;
 }
 
