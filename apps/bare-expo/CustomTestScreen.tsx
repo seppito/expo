@@ -19,8 +19,11 @@ const CustomTestScreen = () => {
     attribute vec3 position;
     attribute vec2 texcoord;
     varying vec2 vTexCoord;
+
+    uniform vec2 scale;
+
     void main() {
-      gl_Position = vec4(position, 1.0);
+      gl_Position = vec4(position.xy * scale, position.z, 1.0);
       vTexCoord = texcoord;
     }
   `;
@@ -29,9 +32,16 @@ const CustomTestScreen = () => {
     precision mediump float;
     varying vec2 vTexCoord;
     uniform sampler2D rgbTex;
+    uniform vec4 borderColor; // Define the border color
 
     void main() {
-      gl_FragColor = texture2D(rgbTex, vTexCoord);
+      if (vTexCoord.x < 0.0 || vTexCoord.x > 1.0 || vTexCoord.y < 0.0 || vTexCoord.y > 1.0) {
+        // Use border color for out-of-bounds texture coordinates
+        gl_FragColor = borderColor;
+      } else {
+        // Sample the texture for in-bounds coordinates
+        gl_FragColor = texture2D(rgbTex, vTexCoord);
+      }
     }
   `;
 
@@ -79,7 +89,9 @@ const CustomTestScreen = () => {
     gl: ExpoWebGLRenderingContext,
     programBlit: WebGLProgram,
     vertexBuffer: WebGLBuffer,
-    rgbTexture: WebGLTexture
+    rgbTexture: WebGLTexture,
+    textureWidth: number,
+    textureHeight: number
   ) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -98,6 +110,21 @@ const CustomTestScreen = () => {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, rgbTexture);
     gl.uniform1i(gl.getUniformLocation(programBlit, 'rgbTex'), 0);
+
+    // Calculate scale to preserve aspect ratio
+    const viewportAspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
+    const textureAspect = textureWidth / textureHeight;
+
+    const scaleLoc = gl.getUniformLocation(programBlit, 'scale');
+    if (viewportAspect > textureAspect) {
+      gl.uniform2f(scaleLoc, textureAspect / viewportAspect, 1.0); // Scale width
+    } else {
+      gl.uniform2f(scaleLoc, 1.0, viewportAspect / textureAspect); // Scale height
+    }
+
+    // Set border color (RGBA)
+    const borderColorLoc = gl.getUniformLocation(programBlit, 'borderColor');
+    gl.uniform4f(borderColorLoc, 0.0, 0.0, 0.0, 1.0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
@@ -136,8 +163,7 @@ const CustomTestScreen = () => {
     glCtx.bindTexture(glCtx.TEXTURE_2D, texRGB);
     glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_MIN_FILTER, glCtx.LINEAR);
     glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_MAG_FILTER, glCtx.LINEAR);
-    glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_WRAP_S, glCtx.CLAMP_TO_EDGE);
-    glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_WRAP_T, glCtx.CLAMP_TO_EDGE);
+
     glCtx.texImage2D(
       glCtx.TEXTURE_2D,
       0,
@@ -188,14 +214,17 @@ const CustomTestScreen = () => {
     const nativeBuffer = frame.getNativeBuffer();
     const pointer = nativeBuffer.pointer;
 
+    // Hardware Buffer width/height are inverted
+    const textureWidth = frame.height;
+    const textureHeight =  frame.width;
     const textureId = await GLView.createTextureFromTexturePointer(gl.contextId, pointer);
-    if (pixelFormat == 'yuv') {
-      renderYUVToRGB(gl, programYUV, vertexBuffer, fbo, textureId);
-      renderRGBToScreen(gl, programBlit, vertexBuffer, rgbTexture);
 
+    if (pixelFormat === 'yuv') {
+      renderYUVToRGB(gl, programYUV, vertexBuffer, fbo, textureId);
+      renderRGBToScreen(gl, programBlit, vertexBuffer, rgbTexture, textureWidth, textureHeight);
       checkGLError('YUV->RGB pass', gl);
     } else {
-      renderRGBToScreen(gl, programBlit, vertexBuffer, { id: textureId });
+      renderRGBToScreen(gl, programBlit, vertexBuffer, { id: textureId }, textureWidth, textureHeight);
     }
 
     gl.flush();
