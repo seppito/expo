@@ -60,9 +60,8 @@ export class GLView extends React.Component<GLViewProps> {
    * @return A promise that resolves to WebGL context object. See [WebGL API](#webgl-api) for more details.
    */
 
-
-  static async createYuvProgramAsync(glCtxId: number) :Promise <any> {
-    const glCtx =  getGl(glCtxId);
+  static async createYuvProgramAsync(glCtxId: number): Promise<any> {
+    const glCtx = getGl(glCtxId);
 
     const vertexShaderSourceYUV = `
     precision mediump float;
@@ -77,7 +76,7 @@ export class GLView extends React.Component<GLViewProps> {
     }
   `;
 
-  const fragmentShaderSourceYUV = `
+    const fragmentShaderSourceYUV = `
     precision mediump float;
     varying vec2 vTexCoord;
     uniform sampler2D yTexture;
@@ -99,7 +98,7 @@ export class GLView extends React.Component<GLViewProps> {
     }
   `;
 
-    console.log("pre shader.")
+    console.log('pre shader.');
     const vertYUV = glCtx.createShader(glCtx.VERTEX_SHADER)!;
     glCtx.shaderSource(vertYUV, vertexShaderSourceYUV);
     glCtx.compileShader(vertYUV);
@@ -107,34 +106,30 @@ export class GLView extends React.Component<GLViewProps> {
     const fragYUV = glCtx.createShader(glCtx.FRAGMENT_SHADER)!;
     glCtx.shaderSource(fragYUV, fragmentShaderSourceYUV);
     glCtx.compileShader(fragYUV);
-    console.log("post frag.")
+    console.log('post frag.');
 
     const progYUV = glCtx.createProgram()!;
     glCtx.attachShader(progYUV, vertYUV);
     glCtx.attachShader(progYUV, fragYUV);
     glCtx.linkProgram(progYUV);
-    console.log("post prog")
+    console.log('post prog');
 
     const vertices = new Float32Array([
-      -1.0, -1.0, 0.0,  0.0, 0.0,
-      1.0, -1.0, 0.0,  1.0, 0.0,
-      -1.0,  1.0, 0.0,  0.0, 1.0,
-      1.0,  1.0, 0.0,  1.0, 1.0,
+      -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, -1.0, 0.0, 1.0, 0.0, -1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0,
+      1.0, 1.0,
     ]);
 
-   // ------------------------------------------------
+    // ------------------------------------------------
     // Create Vertex Buffer
     // ------------------------------------------------
     const vtxBuffer = glCtx.createBuffer()!;
     glCtx.bindBuffer(glCtx.ARRAY_BUFFER, vtxBuffer);
     glCtx.bufferData(glCtx.ARRAY_BUFFER, vertices, glCtx.STATIC_DRAW);
 
-
-    return {progYUV,vtxBuffer};
+    return { progYUV, vtxBuffer };
   }
-  
-  static async prepareContextForNativeCamera(exglCtxId: number): Promise<any> {
 
+  static async prepareContextForNativeCamera(exglCtxId: number): Promise<any> {
     return await GLView.createYuvProgramAsync(exglCtxId);
   }
   static async createContextAsync(): Promise<ExpoWebGLRenderingContext> {
@@ -142,15 +137,13 @@ export class GLView extends React.Component<GLViewProps> {
     return getGl(exglCtxId);
   }
 
-
   static async createTextureFromTexturePointer(exglCtxId: number, pointer: bigint): Promise<any> {
-
     const pointerBigInt = BigInt(pointer) & BigInt('0xFFFFFFFFFFFFFFFF'); // Mask lower 64 bits
     const pointerString = pointerBigInt.toString(16); // Convert to hex string
     return await ExponentGLObjectManager.uploadAHardwareBufferAsync(exglCtxId, pointerString);
   }
 
-  static async createTestHardwareBuffer(option:number): Promise<any> {
+  static async createTestHardwareBuffer(option: number): Promise<any> {
     const { pointer } = await ExponentGLObjectManager.createAHardwareBufferAsync(option);
 
     // Convert to BigInt and mask lower 64 bits (to avoid negative pointers), this to be compilant with react-native-camera return values.
