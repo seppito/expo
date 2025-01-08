@@ -473,7 +473,6 @@ public class GLContext {
   public int  push_texture_from_native_buffer(long native_buffer_address){
     long jsContextRef = mJavaScriptContextProvider.getJavaScriptContextRef();
     int objVal = EXGLContextUploadTexture(jsContextRef,mEXGLCtxId,native_buffer_address);
-    Log.i("GLContext", "objVal "+ objVal);
     return objVal;
   }
 

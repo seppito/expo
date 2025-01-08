@@ -35,8 +35,6 @@ static void checkGLError(const char* msg) {
     }
 }
 int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *hardwareBuffer) {
-    EXGLSysLog("Reached Upload Texture to OpenGL");
-
     auto exglObjId = createObject();
 
     // Acquire hardware buffer
@@ -54,7 +52,6 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
     int height = desc.height;
 
    if (desc.format == AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420) {
-      EXGLSysLog("AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420");
       AHardwareBuffer_Planes planes = {};
       int32_t lock_result = AHardwareBuffer_lockPlanes(
           hardwareBuffer,
@@ -82,7 +79,7 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
       auto uPlaneObjId = createObject();
       auto vPlaneObjId = createObject();
 
-      std::vector<uint8_t> yVec(height * width);
+    std::vector<uint8_t> yVec(height * width);
       for (int row = 0; row < height; ++row) {
           std::memcpy(
               yVec.data() + (row * width),
@@ -111,11 +108,9 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
 
       AHardwareBuffer_unlock(hardwareBuffer, nullptr);
       AHardwareBuffer_release(hardwareBuffer);
-
+      
       addToNextBatch([=, yVec{std::move(yVec)}, uVec{std::move(uVec)}, vVec{std::move(vVec)}] {
-          EXGLSysLog("Inside GL batch operation.");
           glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
           GLuint textureY, textureU, textureV;
           glGenTextures(1, &textureY);
           glGenTextures(1, &textureU);
@@ -240,10 +235,8 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
 
     webglObject.setProperty(runtime, "id", id);
 
-    EXGLSysLog("Done Upload Texture Func.");
     return static_cast<int>(exglObjId);
 }
-
 
 
 void EXGLContext::maybeResolveWorkletContext(jsi::Runtime &runtime) {

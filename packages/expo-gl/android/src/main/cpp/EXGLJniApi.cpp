@@ -116,9 +116,6 @@ Java_expo_modules_gl_cpp_EXGL_EXGLContextUploadTexture(
 
     AHardwareBuffer_Desc desc;
     AHardwareBuffer_describe(nativeBuffer, &desc);
-    __android_log_print(ANDROID_LOG_INFO, "EXGLJni",
-                        "HardwareBuffer details: width=%u, height=%u, layers=%u, format=%u",
-                        desc.width, desc.height, desc.layers, desc.format);
 
     int exlObj = EXGLContextUploadTexture(reinterpret_cast<void *>(jsiPtr), exglCtxId, nativeBuffer);
     AHardwareBuffer_release(nativeBuffer);

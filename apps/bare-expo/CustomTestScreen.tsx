@@ -141,7 +141,7 @@ const CustomTestScreen = () => {
       throw error;
     }
 
-    const vertBlit = glCtx.createShader(glCtx.VERTEX_SHADER)!;
+    const vertBlit = glCtx.createShader(glCtx.VERTEX_SHADER);
     glCtx.shaderSource(vertBlit, vertexShaderSourceBlit);
     glCtx.compileShader(vertBlit);
 
