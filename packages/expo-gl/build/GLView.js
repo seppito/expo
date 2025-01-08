@@ -65,24 +65,22 @@ export class GLView extends React.Component {
       gl_FragColor = vec4(rgb, 1.0);
     }
   `;
-        console.log("pre shader.");
+        console.log('pre shader.');
         const vertYUV = glCtx.createShader(glCtx.VERTEX_SHADER);
         glCtx.shaderSource(vertYUV, vertexShaderSourceYUV);
         glCtx.compileShader(vertYUV);
         const fragYUV = glCtx.createShader(glCtx.FRAGMENT_SHADER);
         glCtx.shaderSource(fragYUV, fragmentShaderSourceYUV);
         glCtx.compileShader(fragYUV);
-        console.log("post frag.");
+        console.log('post frag.');
         const progYUV = glCtx.createProgram();
         glCtx.attachShader(progYUV, vertYUV);
         glCtx.attachShader(progYUV, fragYUV);
         glCtx.linkProgram(progYUV);
-        console.log("post prog");
+        console.log('post prog');
         const vertices = new Float32Array([
-            -1.0, -1.0, 0.0, 0.0, 0.0,
-            1.0, -1.0, 0.0, 1.0, 0.0,
-            -1.0, 1.0, 0.0, 0.0, 1.0,
-            1.0, 1.0, 0.0, 1.0, 1.0,
+            -1.0, -1.0, 0.0, 0.0, 0.0, 1.0, -1.0, 0.0, 1.0, 0.0, -1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0,
+            1.0, 1.0,
         ]);
         // ------------------------------------------------
         // Create Vertex Buffer

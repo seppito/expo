@@ -1,32 +1,31 @@
-
 import * as React from 'react';
 import { useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-
-import { 
-  runAtTargetFps, 
-  useCameraDevice, 
-  useFrameProcessor 
+import {
+  runAtTargetFps,
+  useCameraDevice,
+  useFrameProcessor,
+  Camera,
 } from 'react-native-vision-camera';
-
-import { Camera } from 'react-native-vision-camera';
 
 export function CameraPage({ renderCallback }: any): React.ReactElement {
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('front');
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-
-    runAtTargetFps(15, () => {
+  const frameProcessor = useFrameProcessor(
+    (frame) => {
       'worklet';
-      
-      renderCallback(frame);
 
-    });
-  }, [renderCallback]);
+      runAtTargetFps(15, () => {
+        'worklet';
 
-    if (!device) {
+        renderCallback(frame);
+      });
+    },
+    [renderCallback]
+  );
+
+  if (!device) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.text}>Loading Camera...</Text>
@@ -39,10 +38,10 @@ export function CameraPage({ renderCallback }: any): React.ReactElement {
       <Camera
         style={styles.camera}
         device={device}
-        isActive={true}
+        isActive
         frameProcessor={frameProcessor}
-        resizeMode={"contain"}
-        />
+        resizeMode="contain"
+      />
     </View>
   );
 }
@@ -52,7 +51,7 @@ const styles = StyleSheet.create({
     //...StyleSheet.absoluteFillObject,
     flex: 1,
   },
-  camera:{flex:1},
+  camera: { flex: 1 },
   text: {
     color: 'white',
     fontSize: 11,

@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { View, StyleSheet } from "react-native";
-import { GLView } from "expo-gl";
-import { CameraPage } from "screens/CameraView";
-import { Worklets } from "react-native-worklets-core";
-import { Frame, PixelFormat } from "react-native-vision-camera";
+import { GLView } from 'expo-gl';
+import React, { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Frame, PixelFormat } from 'react-native-vision-camera';
+import { Worklets } from 'react-native-worklets-core';
+import { CameraPage } from 'screens/CameraView';
 
 const CustomTestScreen = () => {
   const [gl, setGl] = useState<ExpoWebGLRenderingContext | null>(null);
@@ -13,7 +13,6 @@ const CustomTestScreen = () => {
   const [fbo, setFbo] = useState<WebGLFramebuffer | null>(null);
   const [rgbTexture, setRgbTexture] = useState<WebGLTexture | null>(null);
   const [pixelFormat, setPixelFormat] = useState<string | null>(null);
-
 
   const vertexShaderSourceBlit = `
     precision mediump float;
@@ -56,11 +55,11 @@ const CustomTestScreen = () => {
     gl.useProgram(programYUV);
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 
-    const posLoc = gl.getAttribLocation(programYUV, "position");
+    const posLoc = gl.getAttribLocation(programYUV, 'position');
     gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 5 * 4, 0);
     gl.enableVertexAttribArray(posLoc);
 
-    const tcLoc = gl.getAttribLocation(programYUV, "texcoord");
+    const tcLoc = gl.getAttribLocation(programYUV, 'texcoord');
     gl.vertexAttribPointer(tcLoc, 2, gl.FLOAT, false, 5 * 4, 3 * 4);
     gl.enableVertexAttribArray(tcLoc);
 
@@ -69,7 +68,7 @@ const CustomTestScreen = () => {
       const texture = { id: yPlaneTexId + i } as WebGLTexture;
       gl.bindTexture(gl.TEXTURE_2D, texture);
 
-      const uniformName = i === 0 ? "yTexture" : i === 1 ? "uTexture" : "vTexture";
+      const uniformName = i === 0 ? 'yTexture' : i === 1 ? 'uTexture' : 'vTexture';
       gl.uniform1i(gl.getUniformLocation(programYUV, uniformName), i);
     }
 
@@ -88,30 +87,30 @@ const CustomTestScreen = () => {
     gl.useProgram(programBlit);
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 
-    const posLoc = gl.getAttribLocation(programBlit, "position");
+    const posLoc = gl.getAttribLocation(programBlit, 'position');
     gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 5 * 4, 0);
     gl.enableVertexAttribArray(posLoc);
 
-    const tcLoc = gl.getAttribLocation(programBlit, "texcoord");
+    const tcLoc = gl.getAttribLocation(programBlit, 'texcoord');
     gl.vertexAttribPointer(tcLoc, 2, gl.FLOAT, false, 5 * 4, 3 * 4);
     gl.enableVertexAttribArray(tcLoc);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, rgbTexture);
-    gl.uniform1i(gl.getUniformLocation(programBlit, "rgbTex"), 0);
+    gl.uniform1i(gl.getUniformLocation(programBlit, 'rgbTex'), 0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
   async function onContextCreate(glCtx: ExpoWebGLRenderingContext) {
     setGl(glCtx);
-    console.log("Prepare Context.");
+    console.log('Prepare Context.');
     try {
       const { progYUV, vtxBuffer } = await GLView.prepareContextForNativeCamera(glCtx.contextId);
       setProgramYUV(progYUV);
       setVertexBuffer(vtxBuffer);
     } catch (error) {
-      console.error("Error preparing context for native camera:", error);
+      console.error('Error preparing context for native camera:', error);
       throw error;
     }
 
@@ -161,7 +160,7 @@ const CustomTestScreen = () => {
 
     const status = glCtx.checkFramebufferStatus(glCtx.FRAMEBUFFER);
     if (status !== glCtx.FRAMEBUFFER_COMPLETE) {
-      console.error("FBO incomplete:", status);
+      console.error('FBO incomplete:', status);
     }
 
     glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, null);
@@ -169,21 +168,20 @@ const CustomTestScreen = () => {
     setFbo(fbo_);
     setRgbTexture(texRGB);
 
-    checkGLError("onContextCreate complete", glCtx);
+    checkGLError('onContextCreate complete', glCtx);
   }
 
   const renderCallback = Worklets.createRunOnJS(async (frame: Frame) => {
     if (!gl || !programYUV || !programBlit || !vertexBuffer || !fbo || !rgbTexture) {
       return;
     }
-    if(pixelFormat == null ){
+    if (pixelFormat == null) {
       const fFormat = frame.pixelFormat;
       console.log(frame.pixelFormat);
-      try{
+      try {
         setPixelFormat(fFormat);
-
-      }catch (error) {
-        console.error("Error pixel format:", error);
+      } catch (error) {
+        console.error('Error pixel format:', error);
         throw error;
       }
     }
@@ -191,13 +189,13 @@ const CustomTestScreen = () => {
     const pointer = nativeBuffer.pointer;
 
     const textureId = await GLView.createTextureFromTexturePointer(gl.contextId, pointer);
-    if(pixelFormat == 'yuv'){
+    if (pixelFormat == 'yuv') {
       renderYUVToRGB(gl, programYUV, vertexBuffer, fbo, textureId);
       renderRGBToScreen(gl, programBlit, vertexBuffer, rgbTexture);
 
-      checkGLError("YUV->RGB pass", gl);
-    } else{
-      renderRGBToScreen(gl, programBlit, vertexBuffer, {id : textureId});
+      checkGLError('YUV->RGB pass', gl);
+    } else {
+      renderRGBToScreen(gl, programBlit, vertexBuffer, { id: textureId });
     }
 
     gl.flush();
@@ -213,7 +211,7 @@ const CustomTestScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f0f0f0" },
+  container: { flex: 1, backgroundColor: '#f0f0f0' },
   cameraView: { flex: 1 },
   glView: { flex: 1 },
 });
