@@ -72,31 +72,33 @@ export class GLView extends React.Component<GLViewProps> {
 
     void main() {
       gl_Position = vec4(position, 1.0);
-      vTexCoord = texcoord;
+      // Rotate texture coordinates 90 degrees counterclockwise
+      vTexCoord = vec2(texcoord.y, texcoord.x);
     }
   `;
 
-    const fragmentShaderSourceYUV = `
-      precision mediump float;
-      varying vec2 vTexCoord;
-      uniform sampler2D yTexture;
-      uniform sampler2D uTexture;
-      uniform sampler2D vTexture;
+  const fragmentShaderSourceYUV = `
+    precision mediump float;
+    varying vec2 vTexCoord;
+    uniform sampler2D yTexture;
+    uniform sampler2D uTexture;
+    uniform sampler2D vTexture;
 
-      void main() {
-        float y = (texture2D(yTexture, vTexCoord).r - 0.0625) * 1.164;
-        float u = texture2D(uTexture, vTexCoord).r - 0.5;
-        float v = texture2D(vTexture, vTexCoord).r - 0.5;
+    void main() {
+      float y = (texture2D(yTexture, vTexCoord).r - 0.0625) * 1.164;
+      float u = texture2D(uTexture, vTexCoord).r - 0.5;
+      float v = texture2D(vTexture, vTexCoord).r - 0.5;
 
-        // YUV -> RGB
-        vec3 rgb = vec3(
-          y + 1.596 * v,
-          y - 0.391 * u - 0.813 * v,
-          y + 2.018 * u
-        );
-        gl_FragColor = vec4(rgb, 1.0);
-      }
-    `;
+      // YUV -> RGB
+      vec3 rgb = vec3(
+        y + 1.596 * v,
+        y - 0.391 * u - 0.813 * v,
+        y + 2.018 * u
+      );
+      gl_FragColor = vec4(rgb, 1.0);
+    }
+  `;
+
     console.log("pre shader.")
     const vertYUV = glCtx.createShader(glCtx.VERTEX_SHADER)!;
     glCtx.shaderSource(vertYUV, vertexShaderSourceYUV);

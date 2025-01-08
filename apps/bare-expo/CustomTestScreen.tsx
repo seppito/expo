@@ -80,7 +80,7 @@ const CustomTestScreen = () => {
     gl: ExpoWebGLRenderingContext,
     programBlit: WebGLProgram,
     vertexBuffer: WebGLBuffer,
-    rgbTexture2: WebGLTexture
+    rgbTexture: WebGLTexture
   ) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -97,7 +97,7 @@ const CustomTestScreen = () => {
     gl.enableVertexAttribArray(tcLoc);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, rgbTexture2);
+    gl.bindTexture(gl.TEXTURE_2D, rgbTexture);
     gl.uniform1i(gl.getUniformLocation(programBlit, "rgbTex"), 0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
