@@ -6,6 +6,7 @@ import {
   useCameraDevice,
   useFrameProcessor,
   Camera,
+  runAsync,
 } from 'react-native-vision-camera';
 
 export function CameraPage({ renderCallback }: any): React.ReactElement {
@@ -16,7 +17,7 @@ export function CameraPage({ renderCallback }: any): React.ReactElement {
     (frame) => {
       'worklet';
 
-      runAtTargetFps(15, () => {
+      runAsync(frame, () => {
         'worklet';
 
         renderCallback(frame);
