@@ -66,7 +66,6 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
           AHardwareBuffer_release(hardwareBuffer);
           return 0;
       }
-
       void* yPlane = planes.planes[0].data;
       void* uPlane = planes.planes[1].data;
       void* vPlane = planes.planes[2].data;
@@ -79,7 +78,7 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
       auto uPlaneObjId = createObject();
       auto vPlaneObjId = createObject();
 
-    std::vector<uint8_t> yVec(height * width);
+      std::vector<uint8_t> yVec(height * width);
       for (int row = 0; row < height; ++row) {
           std::memcpy(
               yVec.data() + (row * width),
@@ -106,9 +105,11 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
       gl_cpp::flipPixels(uVec.data(), width / 2, height / 2);
       gl_cpp::flipPixels(vVec.data(), width / 2, height / 2);
 
+      // Done reading from CPU memory
       AHardwareBuffer_unlock(hardwareBuffer, nullptr);
       AHardwareBuffer_release(hardwareBuffer);
-      
+
+      // 3. Queue the OpenGL upload
       addToNextBatch([=, yVec{std::move(yVec)}, uVec{std::move(uVec)}, vVec{std::move(vVec)}] {
           glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
           GLuint textureY, textureU, textureV;

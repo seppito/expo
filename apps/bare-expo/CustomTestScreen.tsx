@@ -145,21 +145,21 @@ const CustomTestScreen = () => {
     glCtx.shaderSource(vertBlit, vertexShaderSourceBlit);
     glCtx.compileShader(vertBlit);
 
-    const fragBlit = glCtx.createShader(glCtx.FRAGMENT_SHADER)!;
+    const fragBlit = glCtx.createShader(glCtx.FRAGMENT_SHADER);
     glCtx.shaderSource(fragBlit, fragmentShaderSourceBlit);
     glCtx.compileShader(fragBlit);
 
-    const progBlit = glCtx.createProgram()!;
+    const progBlit = glCtx.createProgram();
     glCtx.attachShader(progBlit, vertBlit);
     glCtx.attachShader(progBlit, fragBlit);
     glCtx.linkProgram(progBlit);
 
     setProgramBlit(progBlit);
 
-    const fbo_ = glCtx.createFramebuffer()!;
+    const fbo_ = glCtx.createFramebuffer();
     glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, fbo_);
 
-    const texRGB = glCtx.createTexture()!;
+    const texRGB = glCtx.createTexture();
     glCtx.bindTexture(glCtx.TEXTURE_2D, texRGB);
     glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_MIN_FILTER, glCtx.LINEAR);
     glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_MAG_FILTER, glCtx.LINEAR);
