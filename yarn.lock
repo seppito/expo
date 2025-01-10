@@ -13607,6 +13607,11 @@ react-native-view-shot@4.0.2:
   dependencies:
     html2canvas "^1.4.1"
 
+react-native-vision-camera-face-detector@^1.7.2:
+  version "1.7.2"
+  resolved "https://registry.yarnpkg.com/react-native-vision-camera-face-detector/-/react-native-vision-camera-face-detector-1.7.2.tgz#dc0e63c9da11acfcec67447a416f89cf0115b6a1"
+  integrity sha512-Y12FVJfGzqLpslBhr3E57JzLb2ZiuI0wl5VoBa7qLIjaiWv4agkU9somVeowfM60cU2NT5njiQY+PT+wKqLJGQ==
+
 react-native-vision-camera@^4.6.3:
   version "4.6.3"
   resolved "https://registry.yarnpkg.com/react-native-vision-camera/-/react-native-vision-camera-4.6.3.tgz#4454ec5a00d529dde6e4d96e29cdb49fc37a3b7f"

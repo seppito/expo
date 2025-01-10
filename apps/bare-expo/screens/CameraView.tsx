@@ -8,18 +8,31 @@ import {
   Camera,
   runAsync,
 } from 'react-native-vision-camera';
+import { 
+  Face,
+  useFaceDetector,
+  FaceDetectionOptions
+} from 'react-native-vision-camera-face-detector'
 
 export function CameraPage({ renderCallback }: any): React.ReactElement {
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('front');
+  const faceDetectionOptions = useRef<FaceDetectionOptions>( {
+    // detection options
 
+  } ).current
+
+  const { detectFaces } = useFaceDetector( faceDetectionOptions )
   const frameProcessor = useFrameProcessor(
     (frame) => {
       'worklet';
 
       runAsync(frame, () => {
         'worklet';
-
+        const faces : Face[] = detectFaces(frame);
+        if(faces.length>0){
+          console.log('face 0', faces[0].bounds.x,faces[0].bounds.y)
+        }
         renderCallback(frame);
       });
     },
