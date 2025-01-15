@@ -1,4 +1,6 @@
+import BufferViewer from 'components/BufferViewer';
 import { useGLBufferFrameManager } from 'components/GLBufferFrameManager';
+import { renderYUVToRGB } from 'components/GLContextManager';
 import { ExpoWebGLRenderingContext, GLView } from 'expo-gl';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
@@ -12,8 +14,9 @@ import { Worklets } from 'react-native-worklets-core';
 import { CameraPage } from 'screens/CameraView';
 
 const CustomTestScreen = () => {
-  const { initializeContext, addFrame, deleteFrame, renderYUVToRGB } = useGLBufferFrameManager();
+  const { initializeContext, addFrame, deleteFrame,frames } = useGLBufferFrameManager();
   const [gl, setGL] = useState(null);
+  const [currentFrameId, setCurrentFrameId] = useState(0);
   // State for managing camera visibility and frame processing
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -40,8 +43,6 @@ const CustomTestScreen = () => {
       const { progYUV, vtxBuffer } = await GLView.prepareContextForNativeCamera(gl.contextId);
       setProgYuv(progYUV);
       setvtxBuffer(vtxBuffer);
-
-      // Further GL setup (e.g., shaders, buffers) goes here...
     } catch (error) {
       console.error('Error preparing context for native camera:', error);
       throw error;
@@ -54,11 +55,9 @@ const CustomTestScreen = () => {
 
   const { detectFaces } = useFaceDetector(faceDetectionOptions);
 
-  const handleDetectedFaces = Worklets.createRunOnJS( (
-    faces: Face[]
-  ) => { 
-    console.log( 'faces detected', faces )
-  })
+  const handleDetectedFaces = Worklets.createRunOnJS((faces: Face[]) => {
+    console.log('faces detected', faces);
+  });
 
   // Handle screen tap to start frame processing
   const handleScreenTap = useCallback(() => {
@@ -101,14 +100,14 @@ const CustomTestScreen = () => {
           textureWidth,
           textureHeight
         );
-        console.log('Rgb texture was created : ', rgbTexture);
+
+        addFrame(rgbTexture);
       } catch (error) {
         console.error('Error in HB upload:', error);
         throw error;
       } finally {
         internal.decrementRefCount();
       }
-      console.log('completed.');
     }
   });
 
@@ -118,7 +117,12 @@ const CustomTestScreen = () => {
         <CameraPage style={styles.cameraView} renderCallback={renderCallback} />
       ) : (
         <View style={styles.emptyView}>
-          <Text style={styles.emptyText}>Camera is off</Text>
+          <BufferViewer
+            frames={frames}
+            glContext={gl} // Pass the actual GL context if available
+            id={currentFrameId}
+            onChangeFrame={setCurrentFrameId}
+          />
         </View>
       )}
     </TouchableOpacity>
