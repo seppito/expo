@@ -1,12 +1,17 @@
+import * as FileSystem from 'expo-file-system';
 import * as GL from 'expo-gl';
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 
-import { useGLBufferFrameManager } from './GLBufferFrameManager';
-import { prepareForRgbToScreen } from './GLContextManager';
+import { ProcessedFrame, useGLBufferFrameManager } from './GLBufferFrameManager';
+import {
+  createVertexBuffer,
+  prepareForRgbToScreen,
+  renderRGBToFramebuffer,
+} from './GLContextManager';
 
 interface BufferViewerProps {
-  frames: any[];
+  frames: ProcessedFrame[];
   glContext: GL.ExpoWebGLRenderingContext | null;
   id: number;
   onChangeFrame: (newId: number) => void;
@@ -15,45 +20,60 @@ interface BufferViewerProps {
 const BufferViewer: React.FC<BufferViewerProps> = ({ frames, glContext, id, onChangeFrame }) => {
   const [snapshot, setSnapshot] = useState<GL.GLSnapshot | null>(null);
   const [rgbToScreenProgram, setRgbToScreenProgram] = useState<WebGLProgram | null>(null);
+  const [vertexBuffer, setVertexBuffer] = useState<WebGLBuffer | null>(null);
+  const [frameBuffer, setFrameBuffer] = useState<WebGLFramebuffer | null>(null);
 
   // Update snapshot whenever the frame changes
   useEffect(() => {
     if (glContext) {
       const program = prepareForRgbToScreen(glContext);
+      const vtxBuffer = createVertexBuffer(glContext);
+      const fb = glContext.createFramebuffer();
       setRgbToScreenProgram(program);
+      setVertexBuffer(vtxBuffer);
+      setFrameBuffer(fb);
       console.log('program :', program);
     }
   }, [glContext]);
 
-  // Update snapshot whenever the frame changes
   useEffect(() => {
-    if (glContext && frames[id]) {
-      const frame = frames[id];
+    const renderFrame = async () => {
+      if (glContext && frames[id] && vertexBuffer && frameBuffer) {
+        console.log(frames.length);
+        const frame = frames[id];
+        // Render the RGB texture to screen
+        renderRGBToFramebuffer(
+          glContext,
+          rgbToScreenProgram,
+          vertexBuffer,
+          frame.texture,
+          frame.metadata['textureWidth'], // Read width from metadata
+          frame.metadata['textureHeight'], // Read height from metadata
+          frameBuffer
+        );
+        console.log('Done rendering.');
+        glContext.endFrameEXP();
 
-      //renderRGBToScreen(glContext,)
-      /*
-      // we need to use flip option because framebuffer contents are flipped vertically
-      const snapshot = await GLView.takeSnapshotAsync(gl, {
-        flip: true,
-      });
+        // Optionally delete previous snapshot
+        if (snapshot && snapshot.uri) {
+          await FileSystem.deleteAsync(snapshot.uri as string, { idempotent: true });
+        }
 
-      // delete previous snapshot
-      if (snapshot) { 
-        FileSystem.deleteAsync(this.state.snapshot.uri as string, { idempotent: true });
+        // Take a snapshot of the current GL context
+        const snap = await GL.GLView.takeSnapshotAsync(glContext, {
+          flip: false,
+        });
+        console.log(snap.uri);
+        // Update the state with the new snapshot
+        setSnapshot(snap);
       }
-
-      this.setState({ snapshot });
-      this.isDrawing = false;
-
-*/
-    }
-  }, [glContext, frames, id]);
+    };
+    // Call the async function
+    renderFrame();
+  }, [glContext, frames, id, vertexBuffer, rgbToScreenProgram, frameBuffer]);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.frameCountText}>
-        Stored Frames: {frames.length} | Current Frame ID: {id}
-      </Text>
       <View style={styles.flex}>
         {snapshot && (
           <Image
@@ -68,12 +88,10 @@ const BufferViewer: React.FC<BufferViewerProps> = ({ frames, glContext, id, onCh
         <TouchableOpacity
           style={[styles.navButton, styles.leftButton]}
           onPress={() => onChangeFrame(Math.max(0, id - 1))}>
-          <Text style={styles.navText}>←</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.navButton, styles.rightButton]}
           onPress={() => onChangeFrame(Math.min(frames.length - 1, id + 1))}>
-          <Text style={styles.navText}>→</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -85,16 +103,12 @@ export default BufferViewer;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
+    width: '100%',
+    backgroundColor: 'white',
   },
   flex: {
     flex: 1,
     width: '100%',
-  },
-  frameCountText: {
-    fontSize: 16,
-    marginBottom: 10,
-    fontWeight: 'bold',
   },
   navigationContainer: {
     position: 'absolute',
@@ -117,10 +131,5 @@ const styles = StyleSheet.create({
   },
   rightButton: {
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
-  },
-  navText: {
-    fontSize: 48,
-    color: 'white',
-    opacity: 0.8,
   },
 });

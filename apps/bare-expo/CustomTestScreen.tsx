@@ -1,6 +1,6 @@
 import BufferViewer from 'components/BufferViewer';
 import { useGLBufferFrameManager } from 'components/GLBufferFrameManager';
-import { renderYUVToRGB } from 'components/GLContextManager';
+import { renderYUVToRGB, checkGLError } from 'components/GLContextManager';
 import { ExpoWebGLRenderingContext, GLView } from 'expo-gl';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
@@ -14,7 +14,7 @@ import { Worklets } from 'react-native-worklets-core';
 import { CameraPage } from 'screens/CameraView';
 
 const CustomTestScreen = () => {
-  const { initializeContext, addFrame, deleteFrame,frames } = useGLBufferFrameManager();
+  const { initializeContext, addFrame, frames } = useGLBufferFrameManager();
   const [gl, setGL] = useState(null);
   const [currentFrameId, setCurrentFrameId] = useState(0);
   // State for managing camera visibility and frame processing
@@ -22,6 +22,7 @@ const CustomTestScreen = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progYUV, setProgYuv] = useState(null);
   const [vtxBuffer, setvtxBuffer] = useState(null);
+  const [frameBuffer, setFrameBuffer] = useState(null);
 
   // Initialize GL context when the component mounts
   useEffect(() => {
@@ -32,7 +33,6 @@ const CustomTestScreen = () => {
         await onContextCreate(glCtx);
       }
     };
-
     setupGL();
   }, [initializeContext]);
 
@@ -40,34 +40,27 @@ const CustomTestScreen = () => {
   const onContextCreate = async (gl: ExpoWebGLRenderingContext) => {
     console.log('Preparing GL Context.');
     try {
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+
+      checkGLError(gl, 'Creating Framebuffer');
+      setFrameBuffer(fbo);
       const { progYUV, vtxBuffer } = await GLView.prepareContextForNativeCamera(gl.contextId);
+      checkGLError(gl, 'Preparing Native Camera Context');
       setProgYuv(progYUV);
       setvtxBuffer(vtxBuffer);
     } catch (error) {
-      console.error('Error preparing context for native camera:', error);
-      throw error;
+      console.error('Error during GL context preparation:', error);
     }
   };
-
-  const faceDetectionOptions = useRef<FaceDetectionOptions>({
-    // detection optionsa
-  }).current;
-
-  const { detectFaces } = useFaceDetector(faceDetectionOptions);
-
-  const handleDetectedFaces = Worklets.createRunOnJS((faces: Face[]) => {
-    console.log('faces detected', faces);
-  });
 
   // Handle screen tap to start frame processing
   const handleScreenTap = useCallback(() => {
     if (!isProcessing && gl != null) {
-      console.log('Starting frame processing...');
       setIsProcessing(true);
 
       // Stop frame processing and remove the camera afrter 3 seconds
       setTimeout(() => {
-        console.log('Stopping frame processing...');
         setIsProcessing(false);
         setTimeout(() => {
           console.log('removing camera...');
@@ -90,18 +83,21 @@ const CustomTestScreen = () => {
 
       try {
         const textureId = await GLView.createTextureFromTexturePointer(gl.contextId, pointer);
-        const fbo = gl.createFramebuffer();
+        checkGLError(gl, 'Creating Texture from Pointer');
+
         const rgbTexture = renderYUVToRGB(
           gl,
           progYUV,
           vtxBuffer,
-          fbo,
+          frameBuffer,
           textureId,
           textureWidth,
           textureHeight
         );
 
-        addFrame(rgbTexture);
+        checkGLError(gl, 'Rendering Yuv to RGB');
+
+        addFrame(rgbTexture, { textureWidth, textureHeight });
       } catch (error) {
         console.error('Error in HB upload:', error);
         throw error;
@@ -130,7 +126,7 @@ const CustomTestScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f0f0' },
+  container: { flex: 1, backgroundColor: 'white' },
   cameraView: { flex: 1 },
   emptyView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   emptyText: { color: '#fff', fontSize: 16 },

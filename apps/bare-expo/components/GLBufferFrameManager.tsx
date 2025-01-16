@@ -1,6 +1,7 @@
-import { getGLContext } from './GLContextManager';
+import { ExpoWebGLRenderingContext } from 'expo-gl';
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { ExpoWebGLRenderingContext, WebGLTexture } from 'expo-gl';
+
+import { getGLContext } from './GLContextManager';
 
 export interface ProcessedFrame {
   texture: WebGLTexture;
@@ -14,11 +15,9 @@ export const useGLBufferFrameManager = () => {
   // Add a new frame to the buffer
   const addFrame = useCallback(
     (texture: WebGLTexture, metadata = {}) => {
-      console.log('Adding frame to buffer');
       const id = nextId.current++;
       const newFrame: ProcessedFrame = { texture, metadata };
       setFrames((prev) => [...prev, newFrame]);
-      console.log('Updated frame count:', frames.length + 1);
       return id;
     },
     [frames.length]
@@ -40,7 +39,6 @@ export const useGLBufferFrameManager = () => {
     console.log('GL context initialized or reused:', gl);
     return gl;
   }, []);
-  
 
   return {
     initializeContext,
