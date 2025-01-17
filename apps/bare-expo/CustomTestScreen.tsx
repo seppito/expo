@@ -70,42 +70,44 @@ const CustomTestScreen = () => {
     }
   }, [isProcessing, gl]);
 
-  const renderCallback = Worklets.createRunOnJS(async (frame: Frame) => {
-    if (isProcessing) {
-      const internal = frame as FrameInternal;
-      internal.incrementRefCount();
-      const nativeBuffer = frame.getNativeBuffer();
-      const pointer = nativeBuffer.pointer;
+  const yuvToRGBCallback = Worklets.createRunOnJS(async (frame: Frame) => {
+    const internal = frame as FrameInternal;
+    internal.incrementRefCount();
 
-      // Hardware Buffer width/height are inverted
-      const textureWidth = frame.height;
-      const textureHeight = frame.width;
+    const nativeBuffer = frame.getNativeBuffer();
+    const pointer = nativeBuffer.pointer;
 
-      try {
-        const textureId = await GLView.createTextureFromTexturePointer(gl.contextId, pointer);
-        checkGLError(gl, 'Creating Texture from Pointer');
+    // Hardware Buffer width/height are inverted
+    const textureWidth = frame.height;
+    const textureHeight = frame.width;
 
-        const rgbTexture = renderYUVToRGB(
-          gl,
-          progYUV,
-          vtxBuffer,
-          frameBuffer,
-          textureId,
-          textureWidth,
-          textureHeight
-        );
-
-        checkGLError(gl, 'Rendering Yuv to RGB');
-
-        addFrame(rgbTexture, { textureWidth, textureHeight });
-      } catch (error) {
-        console.error('Error in HB upload:', error);
-        throw error;
-      } finally {
-        internal.decrementRefCount();
-      }
+    try {
+      const textureId = await GLView.createTextureFromTexturePointer(gl.contextId, pointer);
+      internal.decrementRefCount();
+      checkGLError(gl, 'Creating Texture from Pointer');
+      const rgbTexture = renderYUVToRGB(
+        gl,
+        progYUV,
+        vtxBuffer,
+        frameBuffer,
+        textureId,
+        textureWidth,
+        textureHeight
+      );
+      checkGLError(gl, 'Rendering Yuv to RGB');
+      addFrame(rgbTexture, { textureWidth, textureHeight });
+    } catch (error) {
+      console.error('Error in HB upload:', error);
+      throw error;
     }
   });
+  
+  const renderCallback = async (frame: Frame) => {
+    'worklet';
+    if (isProcessing) {
+      await yuvToRGBCallback(frame);
+    }
+  };
 
   return (
     <TouchableOpacity style={styles.container} onPress={handleScreenTap}>

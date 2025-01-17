@@ -1,6 +1,7 @@
 import { ExpoWebGLRenderingContext, GLView } from 'expo-gl';
 
 let glContext: ExpoWebGLRenderingContext | null = null;
+const debugMode: boolean = false;
 
 const vertexShaderSourceBlit = `
 precision mediump float;
@@ -33,6 +34,9 @@ void main() {
 }
 `;
 export const checkGLError = (gl: ExpoWebGLRenderingContext, message: string) => {
+  if (!debugMode) {
+    return;
+  }
   const error = gl.getError();
   if (error !== gl.NO_ERROR) {
     console.error(`[GL ERROR] ${message}: ${error}`);

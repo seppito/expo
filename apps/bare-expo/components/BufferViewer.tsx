@@ -3,7 +3,7 @@ import * as GL from 'expo-gl';
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 
-import { ProcessedFrame, useGLBufferFrameManager } from './GLBufferFrameManager';
+import { ProcessedFrame } from './GLBufferFrameManager';
 import {
   createVertexBuffer,
   prepareForRgbToScreen,
@@ -33,6 +33,7 @@ const BufferViewer: React.FC<BufferViewerProps> = ({ frames, glContext, id, onCh
       setVertexBuffer(vtxBuffer);
       setFrameBuffer(fb);
       console.log('program :', program);
+      console.log(frames.length);
     }
   }, [glContext]);
 
@@ -51,7 +52,6 @@ const BufferViewer: React.FC<BufferViewerProps> = ({ frames, glContext, id, onCh
           frame.metadata['textureHeight'], // Read height from metadata
           frameBuffer
         );
-        console.log('Done rendering.');
         glContext.endFrameEXP();
 
         // Optionally delete previous snapshot
@@ -63,8 +63,6 @@ const BufferViewer: React.FC<BufferViewerProps> = ({ frames, glContext, id, onCh
         const snap = await GL.GLView.takeSnapshotAsync(glContext, {
           flip: false,
         });
-        console.log(snap.uri);
-        // Update the state with the new snapshot
         setSnapshot(snap);
       }
     };

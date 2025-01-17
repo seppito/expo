@@ -86,8 +86,6 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
               width
           );
       }
-      gl_cpp::flipPixels(yVec.data(), width, height);
-
       std::vector<uint8_t> uVec((height / 2) * (width / 2));
       std::vector<uint8_t> vVec((height / 2) * (width / 2));
 
@@ -101,9 +99,6 @@ int EXGLContext::uploadTextureToOpenGL(jsi::Runtime &runtime, AHardwareBuffer *h
               vVec[dstIndex] = srcV[row * vStride + col * pixelStride];
           }
       }
-      // Flip U and V
-      gl_cpp::flipPixels(uVec.data(), width / 2, height / 2);
-      gl_cpp::flipPixels(vVec.data(), width / 2, height / 2);
 
       // Done reading from CPU memory
       AHardwareBuffer_unlock(hardwareBuffer, nullptr);
