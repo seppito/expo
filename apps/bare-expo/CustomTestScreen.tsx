@@ -58,7 +58,6 @@ const CustomTestScreen = () => {
   const handleScreenTap = useCallback(() => {
     if (!isProcessing && gl != null) {
       setIsProcessing(true);
-
       // Stop frame processing and remove the camera afrter 3 seconds
       setTimeout(() => {
         setIsProcessing(false);
@@ -66,7 +65,7 @@ const CustomTestScreen = () => {
           console.log('removing camera...');
           setIsCameraActive(false); // Render an empty view
         }, 2000);
-      }, 4000);
+      }, 5000);
     }
   }, [isProcessing, gl]);
 
@@ -83,6 +82,7 @@ const CustomTestScreen = () => {
 
     try {
       const textureId = await GLView.createTextureFromTexturePointer(gl.contextId, pointer);
+      //nativeBuffer.delete();
       internal.decrementRefCount();
       checkGLError(gl, 'Creating Texture from Pointer');
       const rgbTexture = renderYUVToRGB(
@@ -101,7 +101,7 @@ const CustomTestScreen = () => {
       throw error;
     }
   });
-  
+
   const renderCallback = async (frame: Frame) => {
     'worklet';
     if (isProcessing) {
