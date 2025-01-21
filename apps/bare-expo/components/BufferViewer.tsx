@@ -85,12 +85,12 @@ const BufferViewer: React.FC<BufferViewerProps> = ({ frames, glContext, id, onCh
       <View style={styles.navigationContainer}>
         <TouchableOpacity
           style={[styles.navButton, styles.leftButton]}
-          onPress={() => onChangeFrame(Math.max(0, id - 1))}>
-        </TouchableOpacity>
+          onPress={() => onChangeFrame(Math.max(0, id - 1))}
+        />
         <TouchableOpacity
           style={[styles.navButton, styles.rightButton]}
-          onPress={() => onChangeFrame(Math.min(frames.length - 1, id + 1))}>
-        </TouchableOpacity>
+          onPress={() => onChangeFrame(Math.min(frames.length - 1, id + 1))}
+        />
       </View>
     </View>
   );

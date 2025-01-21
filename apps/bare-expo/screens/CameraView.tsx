@@ -1,11 +1,6 @@
 import * as React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import {
-  useCameraDevice,
-  useFrameProcessor,
-  Camera,
-  Frame,
-} from 'react-native-vision-camera';
+import { useCameraDevice, useFrameProcessor, Camera, Frame } from 'react-native-vision-camera';
 
 export function CameraPage({ renderCallback }: any): React.ReactElement {
   const device = useCameraDevice('front');
