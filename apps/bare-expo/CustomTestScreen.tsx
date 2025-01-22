@@ -82,8 +82,9 @@ const CustomTestScreen = () => {
 
     try {
       const textureId = await GLView.createTextureFromTexturePointer(gl.contextId, pointer);
-      //nativeBuffer.delete();
       internal.decrementRefCount();
+      nativeBuffer.delete();
+
       checkGLError(gl, 'Creating Texture from Pointer');
       const rgbTexture = renderYUVToRGB(
         gl,
@@ -95,6 +96,7 @@ const CustomTestScreen = () => {
         textureHeight
       );
       checkGLError(gl, 'Rendering Yuv to RGB');
+
       addFrame(rgbTexture, { textureWidth, textureHeight });
     } catch (error) {
       console.error('Error in HB upload:', error);
@@ -112,7 +114,7 @@ const CustomTestScreen = () => {
   return (
     <TouchableOpacity style={styles.container} onPress={handleScreenTap}>
       {isCameraActive ? (
-        <CameraPage style={styles.cameraView} renderCallback={renderCallback} />
+        <CameraPage style={styles.cameraView} renderCallback={yuvToRGBCallback} isProcessing={isProcessing}/>
       ) : (
         <View style={styles.emptyView}>
           <BufferViewer

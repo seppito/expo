@@ -2,15 +2,17 @@ import * as React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useCameraDevice, useFrameProcessor, Camera, Frame } from 'react-native-vision-camera';
 
-export function CameraPage({ renderCallback }: any): React.ReactElement {
+export function CameraPage({ renderCallback, isProcessing }: any): React.ReactElement {
   const device = useCameraDevice('front');
 
   const frameProcessor = useFrameProcessor(
     async (frame: Frame) => {
       'worklet';
-      await renderCallback(frame);
+      if (isProcessing) {
+        await renderCallback(frame);
+      }
     },
-    [renderCallback]
+    [isProcessing]
   );
 
   if (!device) {
